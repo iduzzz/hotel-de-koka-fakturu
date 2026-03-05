@@ -4,10 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Хотел Де КОКА - Финансии</title>
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -43,21 +39,6 @@
             color: #666;
             margin-bottom: 30px;
             font-size: 1.1em;
-        }
-
-        /* Sync Indicator Styles */
-        #sync-indicator {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 10000;
-            transition: all 0.3s ease;
-            display: none;
         }
 
         .form-section {
@@ -131,10 +112,10 @@
         }
 
         .btn {
-            padding: 10px 20px;
+            padding: 12px 30px;
             border: none;
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 16px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
@@ -193,9 +174,9 @@
         }
 
         .btn-table {
-            font-size: 10px;
-            padding: 4px 8px;
-            border-radius: 4px;
+            font-size: 11px;
+            padding: 5px 10px;
+            border-radius: 5px;
             white-space: nowrap;
         }
 
@@ -514,156 +495,288 @@
             font-size: 0.9em;
         }
 
-        .sync-buttons {
+        .detail-table {
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .detail-row {
             display: flex;
-            gap: 10px;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .detail-value {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        /* Кумулативна калкулација */
+        .company-summary {
+            display: none;
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
             margin-bottom: 20px;
-            flex-wrap: wrap;
+            box-shadow: 0 4px 15px rgba(243, 156, 18, 0.3);
+        }
+
+        .company-summary.show {
+            display: block;
+        }
+
+        .company-summary h3 {
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .company-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .company-summary-item {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .company-summary-item-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+
+        .company-summary-item-value {
+            font-size: 1.5em;
+            font-weight: 700;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .container {
+                box-shadow: none;
+            }
+            
+            .btn, .filter-section, .form-section {
+                display: none !important;
+            }
+            
+            .summary-card {
+                break-inside: avoid;
+            }
         }
 
         @media (max-width: 768px) {
+            .form-grid,
+            .filter-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 1.8em;
+            }
+            
             .container {
                 padding: 15px;
             }
 
-            h1 {
-                font-size: 1.8em;
+            .actions {
+                flex-direction: column;
             }
 
-            .form-grid {
+            .btn-table {
+                width: 100%;
+            }
+
+            .summary-card p {
+                font-size: 1.5em;
+            }
+
+            .payment-item {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .company-summary-grid {
                 grid-template-columns: 1fr;
-            }
-
-            .filter-grid {
-                grid-template-columns: 1fr;
-            }
-
-            table {
-                font-size: 12px;
-            }
-
-            th, td {
-                padding: 8px 4px;
-            }
-
-            #sync-indicator {
-                bottom: 10px;
-                right: 10px;
-                font-size: 12px;
-                padding: 8px 12px;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Sync Indicator -->
-    <div id="sync-indicator"></div>
-
     <div class="container">
         <h1>🏨 Хотел Де КОКА</h1>
-        <p class="subtitle">Систем за управување со фактури и плаќања</p>
+        <p class="subtitle">Систем за следење на влезни фактури</p>
 
-        <!-- Sync Buttons -->
-        <div class="sync-buttons">
-            <button class="btn btn-success btn-small" onclick="loadFromGoogleSheets()">⬇️ Вчитај од Google Sheets</button>
-            <button class="btn btn-info btn-small" onclick="manualSyncToSheets()">☁️ Sync со Google Sheets</button>
-        </div>
-
-        <!-- Summary Cards -->
         <div class="summary">
-            <div class="summary-card" id="card-all" onclick="filterByStatus('all')">
-                <h3>Вкупно Фактури</h3>
+            <div class="summary-card" id="cardTotal" onclick="showAllInvoices()">
+                <h3>Вкупно фактури</h3>
                 <p id="totalInvoices">0</p>
             </div>
-            <div class="summary-card" id="card-paid" onclick="filterByStatus('paid')">
-                <h3>✓ Платени</h3>
-                <p id="paidInvoices">0</p>
+            <div class="summary-card" id="cardDisplayed" onclick="showDetailReport('displayed')">
+                <h3>Прикажани фактури</h3>
+                <p id="displayedInvoices">0</p>
             </div>
-            <div class="summary-card" id="card-partial" onclick="filterByStatus('partial')">
-                <h3>⚡ Делумно платени</h3>
-                <p id="partialInvoices">0</p>
-            </div>
-            <div class="summary-card" id="card-unpaid" onclick="filterByStatus('unpaid')">
-                <h3>⏳ Неплатени</h3>
-                <p id="unpaidInvoices">0</p>
-            </div>
-            <div class="summary-card">
-                <h3>💰 Вкупна Сума</h3>
+            <div class="summary-card" id="cardTotalAmount" onclick="showDetailReport('total')">
+                <h3>Вкупна вредност</h3>
                 <p id="totalAmount">0 ден</p>
             </div>
-            <div class="summary-card">
-                <h3>💵 Платено</h3>
+            <div class="summary-card" id="cardPaid" onclick="showDetailReport('paid')">
+                <h3>Платени</h3>
                 <p id="paidAmount">0 ден</p>
             </div>
-            <div class="summary-card">
-                <h3>⏰ Неплатено</h3>
+            <div class="summary-card" id="cardUnpaid" onclick="showDetailReport('unpaid')">
+                <h3>Неплатени</h3>
                 <p id="unpaidAmount">0 ден</p>
             </div>
         </div>
 
-        <!-- Add Invoice Button -->
-        <div style="margin-bottom: 20px;">
-            <button class="btn btn-primary" onclick="openAddInvoiceModal()">➕ Додади Фактура</button>
-            <button class="btn btn-success" onclick="exportToExcel()">📥 Извези во Excel</button>
-            <button class="btn btn-info" onclick="showReport()">📊 Генерирај Извештај</button>
+        <div class="form-section">
+            <h2 style="margin-bottom: 20px;">➕ Додади нова фактура</h2>
+            <form id="invoiceForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="companyName">Име на фирма *</label>
+                        <input type="text" id="companyName" placeholder="Име на фирма" required>
+                        <div id="companyHistory" class="history-dropdown"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="invoiceNumber">Број на фактура *</label>
+                        <input type="text" id="invoiceNumber" placeholder="Број на фактура" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="bankAccount">Жиро сметка *</label>
+                        <input type="text" id="bankAccount" placeholder="210-0000000000000-00" required>
+                        <div id="accountHistory" class="history-dropdown"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="amount">Сума (ден) *</label>
+                        <input type="number" id="amount" placeholder="0.00" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="entryDate">Датум на фактура *</label>
+                        <input type="date" id="entryDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="dueDate">Валута на фактура *</label>
+                        <input type="date" id="dueDate" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="notes">Забелешка</label>
+                        <textarea id="notes" placeholder="Дополнителни забелешки (опционално)"></textarea>
+                    </div>
+                </div>
+                <div style="margin-top: 20px;">
+                    <button type="submit" class="btn btn-primary">💾 Зачувај фактура</button>
+                </div>
+            </form>
         </div>
 
-        <!-- Filters -->
         <div class="filter-section">
-            <h3 style="margin-bottom: 15px; color: #333;">🔍 Филтри за пребарување</h3>
+            <h2 style="margin-bottom: 20px;">🔍 Филтри за пребарување</h2>
+            <div class="search-box form-group">
+                <label for="globalSearch">Пребарај по сите полиња</label>
+                <input type="text" id="globalSearch" placeholder="Пребарај...">
+            </div>
             <div class="filter-grid">
                 <div class="form-group">
-                    <label>Статус</label>
+                    <label for="filterStatus">Статус</label>
                     <select id="filterStatus">
-                        <option value="all">Сите</option>
+                        <option value="">Сите</option>
                         <option value="paid">Платени</option>
                         <option value="partial">Делумно платени</option>
                         <option value="unpaid">Неплатени</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Компанија</label>
-                    <input type="text" id="filterCompany" placeholder="Пребарај по име...">
+                    <label for="filterCompany">Фирма</label>
+                    <input type="text" id="filterCompany" placeholder="Име на фирма">
                 </div>
                 <div class="form-group">
-                    <label>Број на сметка</label>
-                    <input type="text" id="filterAccount" placeholder="Пребарај по сметка...">
+                    <label for="filterAccount">Жиро сметка</label>
+                    <input type="text" id="filterAccount" placeholder="Жиро сметка">
                 </div>
                 <div class="form-group">
-                    <label>Број на фактура</label>
-                    <input type="text" id="filterInvoiceNumber" placeholder="Број на фактура...">
+                    <label for="filterInvoiceNumber">Број на фактура</label>
+                    <input type="text" id="filterInvoiceNumber" placeholder="Број на фактура">
                 </div>
                 <div class="form-group">
-                    <label>Од датум</label>
+                    <label for="filterDateFrom">Датум од</label>
                     <input type="date" id="filterDateFrom">
                 </div>
                 <div class="form-group">
-                    <label>До датум</label>
+                    <label for="filterDateTo">Датум до</label>
                     <input type="date" id="filterDateTo">
                 </div>
             </div>
-            <div class="search-box">
-                <label>Глобално пребарување</label>
-                <input type="text" id="globalSearch" placeholder="Пребарувај низ сите полиња...">
+            <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn btn-warning" onclick="clearFilters()">🔄 Ресетирај филтри</button>
+                <button class="btn btn-info" onclick="generateMonthlyReport()">📊 Месечен извештај</button>
+                <button class="btn btn-success" onclick="exportToCSV()">📥 Експорт CSV</button>
+                <button class="btn btn-primary" onclick="printReport()">🖨️ Принтај</button>
             </div>
         </div>
 
-        <!-- Table -->
+        <!-- Кумулативна калкулација по фирма -->
+        <div id="companySummary" class="company-summary">
+            <h3>
+                <span>🏢</span>
+                <span id="companySummaryName"></span>
+            </h3>
+            <div class="company-summary-grid">
+                <div class="company-summary-item">
+                    <div class="company-summary-item-label">Број на фактури</div>
+                    <div class="company-summary-item-value" id="companyInvoiceCount">0</div>
+                </div>
+                <div class="company-summary-item">
+                    <div class="company-summary-item-label">Вкупна вредност</div>
+                    <div class="company-summary-item-value" id="companyTotalAmount">0 ден</div>
+                </div>
+                <div class="company-summary-item">
+                    <div class="company-summary-item-label">Платено</div>
+                    <div class="company-summary-item-value" id="companyPaidAmount">0 ден</div>
+                </div>
+                <div class="company-summary-item">
+                    <div class="company-summary-item-label">Остаток (должам)</div>
+                    <div class="company-summary-item-value" id="companyRemainingAmount">0 ден</div>
+                </div>
+            </div>
+        </div>
+
         <div class="table-section">
+            <h2 style="margin-bottom: 15px;">📋 Листа на фактури</h2>
             <table id="invoiceTable">
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Компанија</th>
+                        <th>Фирма</th>
                         <th>Број фактура</th>
-                        <th>Сметка</th>
-                        <th>Износ</th>
+                        <th>Жиро сметка</th>
+                        <th>Вкупна сума</th>
                         <th>Платено</th>
-                        <th>Преостанато</th>
+                        <th>Остаток</th>
+                        <th>Датум</th>
+                        <th>Валута</th>
                         <th>Статус</th>
-                        <th>Датум на внес</th>
-                        <th>Рок</th>
-                        <th>Акции</th>
+                        <th class="no-print">Акции</th>
                     </tr>
                 </thead>
                 <tbody id="invoiceTableBody">
@@ -672,1000 +785,974 @@
         </div>
     </div>
 
-    <!-- Add Invoice Modal -->
-    <div id="addInvoiceModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>➕ Додади Фактура</h2>
-                <span class="close" onclick="closeAddInvoiceModal()">&times;</span>
-            </div>
-            <form id="invoiceForm">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Име на компанија *</label>
-                        <input type="text" id="companyName" required autocomplete="off">
-                        <div id="companyHistory" class="history-dropdown"></div>
-                    </div>
-                    <div class="form-group">
-                        <label>Број на фактура *</label>
-                        <input type="text" id="invoiceNumber" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Број на сметка</label>
-                        <input type="text" id="bankAccount">
-                    </div>
-                    <div class="form-group">
-                        <label>Износ (ден) *</label>
-                        <input type="number" id="amount" step="0.01" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Датум на внес *</label>
-                        <input type="date" id="entryDate" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Рок за плаќање *</label>
-                        <input type="date" id="dueDate" required>
-                    </div>
-                    <div class="form-group full-width">
-                        <label>Забелешки</label>
-                        <textarea id="notes" rows="3"></textarea>
-                    </div>
-                    <div class="form-group full-width">
-                        <label style="margin-bottom: 10px;">Статус на плаќање *</label>
-                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                <input type="radio" name="initialStatus" value="unpaid" checked>
-                                <span>⏳ Неплатена</span>
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                <input type="radio" name="initialStatus" value="paid">
-                                <span>✓ Платена (цела сума)</span>
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                <input type="radio" name="initialStatus" value="partial">
-                                <span>⚡ Делумно платена</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="form-group full-width" id="partialPaidGroup" style="display: none;">
-                        <label>Делумно платена сума (ден)</label>
-                        <input type="number" id="partialPaidAmount" step="0.01" min="0">
-                    </div>
-                    <input type="checkbox" id="isPaidCash" style="display: none;">
-                </div>
-                <div style="margin-top: 20px; display: flex; gap: 10px;">
-                    <button type="submit" class="btn btn-success">✓ Зачувај</button>
-                    <button type="button" class="btn btn-danger" onclick="closeAddInvoiceModal()">✗ Откажи</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Edit Invoice Modal -->
+    <!-- Modal за едитување -->
     <div id="editModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>✏️ Измени Фактура</h2>
+                <h2>✏️ Измени фактура</h2>
                 <span class="close" onclick="closeEditModal()">&times;</span>
             </div>
             <form id="editForm">
                 <input type="hidden" id="editIndex">
                 <div class="form-grid">
                     <div class="form-group">
-                        <label>Име на компанија *</label>
+                        <label for="editCompanyName">Име на фирма *</label>
                         <input type="text" id="editCompanyName" required>
                     </div>
                     <div class="form-group">
-                        <label>Број на фактура *</label>
+                        <label for="editInvoiceNumber">Број на фактура *</label>
                         <input type="text" id="editInvoiceNumber" required>
                     </div>
                     <div class="form-group">
-                        <label>Број на сметка</label>
-                        <input type="text" id="editBankAccount">
+                        <label for="editBankAccount">Жиро сметка *</label>
+                        <input type="text" id="editBankAccount" required>
                     </div>
                     <div class="form-group">
-                        <label>Износ (ден) *</label>
+                        <label for="editAmount">Сума (ден) *</label>
                         <input type="number" id="editAmount" step="0.01" required>
                     </div>
                     <div class="form-group">
-                        <label>Датум на внес *</label>
+                        <label for="editEntryDate">Датум на фактура *</label>
                         <input type="date" id="editEntryDate" required>
                     </div>
                     <div class="form-group">
-                        <label>Рок за плаќање *</label>
+                        <label for="editDueDate">Валута на фактура *</label>
                         <input type="date" id="editDueDate" required>
                     </div>
                     <div class="form-group full-width">
-                        <label>Забелешки</label>
-                        <textarea id="editNotes" rows="3"></textarea>
+                        <label for="editNotes">Забелешка</label>
+                        <textarea id="editNotes" placeholder="Дополнителни забелешки (опционално)"></textarea>
                     </div>
                 </div>
                 <div style="margin-top: 20px; display: flex; gap: 10px;">
-                    <button type="submit" class="btn btn-success">✓ Зачувај</button>
-                    <button type="button" class="btn btn-danger" onclick="closeEditModal()">✗ Откажи</button>
+                    <button type="submit" class="btn btn-primary">💾 Зачувај измени</button>
+                    <button type="button" class="btn btn-danger" onclick="closeEditModal()">Откажи</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Payment Modal -->
+    <!-- Modal за плаќања -->
     <div id="paymentModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>💰 Управување со плаќања</h2>
+                <h2>💰 Плаќања за фактура</h2>
                 <span class="close" onclick="closePaymentModal()">&times;</span>
             </div>
-            <div id="paymentModalContent"></div>
+            <div id="paymentModalContent">
+                <div class="payment-info">
+                    <div class="payment-info-row">
+                        <span>Фактура:</span>
+                        <strong id="paymentInvoiceNumber"></strong>
+                    </div>
+                    <div class="payment-info-row">
+                        <span>Фирма:</span>
+                        <strong id="paymentCompanyName"></strong>
+                    </div>
+                    <div class="payment-info-row">
+                        <span>Вкупна сума:</span>
+                        <strong id="paymentTotalAmount"></strong>
+                    </div>
+                    <div class="payment-info-row">
+                        <span>Платено:</span>
+                        <strong id="paymentPaidAmount" style="color: #27ae60;"></strong>
+                    </div>
+                    <div class="payment-info-row">
+                        <span>Остаток:</span>
+                        <strong id="paymentRemainingAmount" style="color: #e74c3c;"></strong>
+                    </div>
+                </div>
+
+                <div class="progress-bar" style="margin-top: 20px;">
+                    <div class="progress-fill" id="paymentProgress">0%</div>
+                </div>
+
+                <h3 style="margin-top: 25px; margin-bottom: 15px;">Додади ново плаќање</h3>
+                <form id="addPaymentForm">
+                    <input type="hidden" id="paymentInvoiceIndex">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="paymentAmount">Сума на плаќање (ден) *</label>
+                            <input type="number" id="paymentAmount" placeholder="0.00" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="paymentDate">Датум на плаќање *</label>
+                            <input type="date" id="paymentDate" required>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="paymentNote">Забелешка за плаќањето</label>
+                            <input type="text" id="paymentNote" placeholder="Опционално">
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <button type="submit" class="btn btn-success">✓ Додади плаќање</button>
+                    </div>
+                </form>
+
+                <h3 style="margin-top: 30px; margin-bottom: 15px;">Историја на плаќања</h3>
+                <div id="paymentsListContainer" class="payments-list"></div>
+            </div>
+            <div style="margin-top: 20px;">
+                <button class="btn btn-danger" onclick="closePaymentModal()">Затвори</button>
+            </div>
         </div>
     </div>
 
-    <!-- Report Modal -->
+    <!-- Modal за детален извештај -->
     <div id="reportModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>📊 Извештај</h2>
+                <h2 id="reportTitle">📊 Детален извештај</h2>
                 <span class="close" onclick="closeReportModal()">&times;</span>
             </div>
             <div id="reportContent"></div>
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                <button class="btn btn-success" onclick="exportReportToCSV()">📥 Експорт</button>
+                <button class="btn btn-primary" onclick="printModal()">🖨️ Принтај</button>
+                <button class="btn btn-danger" onclick="closeReportModal()">Затвори</button>
+            </div>
         </div>
     </div>
 
-<script>
-// ===== GOOGLE SHEETS CONFIGURATION =====
-const GOOGLE_SHEETS_CONFIG = {
-    webAppUrl: 'https://script.google.com/macros/s/AKfycbxADkb4ZD9IrVD7hAB2ZE32MFQhKaXF5UZwC_slbDZT6WwNH3lDW9B_qiVzRrX3lXQD0g/exec',
-    enabled: true // Set to false to use localStorage only
-};
+    <script>
+        let invoices = JSON.parse(localStorage.getItem('hotelInvoices')) || [];
+        let filteredInvoices = [...invoices];
+        let currentReportData = null;
+        let editingPaymentIndex = null;
 
-// ===== LOCAL STORAGE (BACKUP) =====
-const STORAGE_KEY = 'hotelkoka_invoices';
-const STORAGE_VERSION = '1.0';
-
-// ===== SYNC INDICATOR FUNCTION =====
-function showSyncIndicator(status) {
-    let indicator = document.getElementById('sync-indicator');
-    if (!indicator) {
-        indicator = document.createElement('div');
-        indicator.id = 'sync-indicator';
-        document.body.appendChild(indicator);
-    }
-    
-    indicator.style.display = 'block';
-    
-    if (status === 'syncing') {
-        indicator.style.background = '#3498db';
-        indicator.style.color = 'white';
-        indicator.textContent = '☁️ Синхронизација...';
-    } else if (status === 'success') {
-        indicator.style.background = '#27ae60';
-        indicator.style.color = 'white';
-        indicator.textContent = '✓ Синхронизирано!';
-        setTimeout(() => {
-            indicator.style.display = 'none';
-        }, 3000);
-    } else if (status === 'error') {
-        indicator.style.background = '#e74c3c';
-        indicator.style.color = 'white';
-        indicator.textContent = '✗ Грешка!';
-        setTimeout(() => {
-            indicator.style.display = 'none';
-        }, 3000);
-    }
-}
-
-// ===== GOOGLE SHEETS FUNCTIONS =====
-async function loadFromGoogleSheets() {
-    if (!GOOGLE_SHEETS_CONFIG.enabled) {
-        console.log('Google Sheets integration disabled');
-        return false;
-    }
-
-    try {
-        showSyncIndicator('syncing');
-        
-        const response = await fetch(GOOGLE_SHEETS_CONFIG.webAppUrl);
-        
-        if (!response.ok) {
-            throw new Error(`Apps Script error: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        if (!result.success) {
-            throw new Error('Failed to load data from Apps Script');
-        }
-        
-        if (!result.data || result.data.length === 0) {
-            console.log('No data in Google Sheets');
-            invoices = [];
-            showSyncIndicator('success');
-            saveToLocalStorage();
-            applyFilters();
-            return true;
-        }
-        
-        // Convert sheet rows to invoices
-        invoices = result.data.map(row => ({
-            id: String(row[0] || generateId()),
-            companyName: row[1] || '',
-            invoiceNumber: row[2] || '',
-            bankAccount: row[3] || '',
-            amount: parseFloat(row[4]) || 0,
-            entryDate: row[5] || '',
-            dueDate: row[6] || '',
-            notes: row[7] || '',
-            payments: row[8] ? JSON.parse(row[8]) : [],
-            timestamp: row[9] || new Date().toISOString()
-        }));
-        
-        console.log('✅ Loaded from Google Sheets:', invoices.length, 'invoices');
-        showSyncIndicator('success');
-        
-        // Save to localStorage as backup
-        saveToLocalStorage();
-        applyFilters();
-        
-        return true;
-    } catch (error) {
-        console.error('❌ Error loading from Google Sheets:', error);
-        showSyncIndicator('error');
-        alert('Грешка при вчитување од Google Sheets. Ќе се користат локални податоци.');
-        
-        // Fallback to localStorage
-        loadFromLocalStorage();
-        return false;
-    }
-}
-
-async function saveToGoogleSheets() {
-    if (!GOOGLE_SHEETS_CONFIG.enabled) {
-        console.log('Google Sheets integration disabled');
-        return false;
-    }
-
-    try {
-        showSyncIndicator('syncing');
-        
-        // Prepare data to send
-        const dataToSend = {
-            invoices: invoices.map(inv => ({
-                id: inv.id || generateId(),
-                companyName: inv.companyName || '',
-                invoiceNumber: inv.invoiceNumber || '',
-                bankAccount: inv.bankAccount || '',
-                amount: inv.amount || 0,
-                entryDate: inv.entryDate || '',
-                dueDate: inv.dueDate || '',
-                notes: inv.notes || '',
-                payments: inv.payments || [],
-                timestamp: inv.timestamp || new Date().toISOString()
-            }))
-        };
-        
-        // Send with timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        
-        const response = await fetch(GOOGLE_SHEETS_CONFIG.webAppUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'text/plain',
-            },
-            body: JSON.stringify(dataToSend),
-            signal: controller.signal
+        // Initialize payments array for existing invoices
+        invoices.forEach(inv => {
+            if (!inv.payments) {
+                inv.payments = [];
+            }
         });
-        
-        clearTimeout(timeoutId);
-        
-        if (response.ok) {
-            console.log('✅ Synced to Google Sheets:', invoices.length, 'invoices');
-            showSyncIndicator('success');
+        saveInvoices();
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}.${month}.${year}`;
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('mk-MK', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(amount);
+        }
+
+        function saveInvoices() {
+            localStorage.setItem('hotelInvoices', JSON.stringify(invoices));
+        }
+
+        function calculatePaidAmount(invoice) {
+            if (!invoice.payments || invoice.payments.length === 0) {
+                return 0;
+            }
+            return invoice.payments.reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
+        }
+
+        function calculateRemainingAmount(invoice) {
+            const total = parseFloat(invoice.amount || 0);
+            const paid = calculatePaidAmount(invoice);
+            return total - paid;
+        }
+
+        function getPaymentStatus(invoice) {
+            const remaining = calculateRemainingAmount(invoice);
+            const total = parseFloat(invoice.amount || 0);
             
-            // Save to localStorage as backup
-            saveToLocalStorage();
-            return true;
-        } else {
-            throw new Error('Server returned: ' + response.status);
+            if (remaining <= 0) {
+                return 'paid';
+            } else if (remaining < total) {
+                return 'partial';
+            } else {
+                return 'unpaid';
+            }
         }
-        
-    } catch (error) {
-        console.error('❌ Error syncing to Google Sheets:', error);
-        showSyncIndicator('error');
-        
-        // Fallback to localStorage
-        saveToLocalStorage();
-        return false;
-    }
-}
 
-// Manual sync button
-async function manualSyncToSheets() {
-    const result = await saveToGoogleSheets();
-    if (result) {
-        alert('✅ Успешно синхронизирано со Google Sheets!');
-    } else {
-        alert('⚠️ Грешка при синхронизација. Податоците се зачувани локално.');
-    }
-}
+        function updateCompanySummary(companyFilter) {
+            const summaryDiv = document.getElementById('companySummary');
+            
+            if (!companyFilter || companyFilter.trim() === '') {
+                summaryDiv.classList.remove('show');
+                return;
+            }
 
-// ===== LOCAL STORAGE FUNCTIONS =====
-function saveToLocalStorage() {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(invoices));
-        localStorage.setItem(STORAGE_KEY + '_version', STORAGE_VERSION);
-        return true;
-    } catch (error) {
-        console.error('Error saving to localStorage:', error);
-        return false;
-    }
-}
+            // Find all invoices for this company (not just filtered ones)
+            const companyInvoices = invoices.filter(inv => 
+                inv.companyName && inv.companyName.toLowerCase().includes(companyFilter.toLowerCase())
+            );
 
-function loadFromLocalStorage() {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-        try {
-            invoices = JSON.parse(saved);
+            if (companyInvoices.length === 0) {
+                summaryDiv.classList.remove('show');
+                return;
+            }
+
+            let totalAmount = 0;
+            let paidAmount = 0;
+            let remainingAmount = 0;
+
+            companyInvoices.forEach(inv => {
+                const invTotal = parseFloat(inv.amount || 0);
+                const invPaid = calculatePaidAmount(inv);
+                totalAmount += invTotal;
+                paidAmount += invPaid;
+                remainingAmount += (invTotal - invPaid);
+            });
+
+            // Get company name from first matching invoice
+            const companyName = companyInvoices[0].companyName;
+
+            document.getElementById('companySummaryName').textContent = companyName;
+            document.getElementById('companyInvoiceCount').textContent = companyInvoices.length;
+            document.getElementById('companyTotalAmount').textContent = formatCurrency(totalAmount) + ' ден';
+            document.getElementById('companyPaidAmount').textContent = formatCurrency(paidAmount) + ' ден';
+            document.getElementById('companyRemainingAmount').textContent = formatCurrency(remainingAmount) + ' ден';
+
+            summaryDiv.classList.add('show');
+        }
+
+        function showHistory(inputId, historyId, searchTerm, searchField) {
+            const historyDiv = document.getElementById(historyId);
+            
+            if (!searchTerm || searchTerm.length < 2) {
+                historyDiv.classList.remove('show');
+                return;
+            }
+
+            const matchingInvoices = invoices.filter(inv => 
+                inv[searchField] && inv[searchField].toLowerCase().includes(searchTerm.toLowerCase())
+            );
+
+            if (matchingInvoices.length === 0) {
+                historyDiv.innerHTML = '<div class="no-history">Нема историја за овој запис</div>';
+                historyDiv.classList.add('show');
+                return;
+            }
+
+            const grouped = {};
+            matchingInvoices.forEach(inv => {
+                const key = searchField === 'companyName' ? inv.companyName : inv.bankAccount;
+                if (!grouped[key]) {
+                    grouped[key] = {
+                        invoice: inv,
+                        count: 0,
+                        totalAmount: 0
+                    };
+                }
+                grouped[key].count++;
+                grouped[key].totalAmount += parseFloat(inv.amount);
+            });
+
+            let html = '';
+            Object.values(grouped).forEach(group => {
+                const inv = group.invoice;
+                html += `
+                    <div class="history-item" onclick="fillFromHistory('${inv.companyName.replace(/'/g, "\\'")}', '${inv.bankAccount}')">
+                        <div class="history-item-company">
+                            ${inv.companyName}
+                            <span class="history-badge">${group.count} фактури</span>
+                        </div>
+                        <div class="history-item-details">
+                            <span class="history-item-account">${inv.bankAccount}</span> • 
+                            <span class="history-item-amount">Вкупно: ${formatCurrency(group.totalAmount)} ден</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            historyDiv.innerHTML = html;
+            historyDiv.classList.add('show');
+        }
+
+        function fillFromHistory(companyName, bankAccount) {
+            document.getElementById('companyName').value = companyName;
+            document.getElementById('bankAccount').value = bankAccount;
+            document.getElementById('companyHistory').classList.remove('show');
+            document.getElementById('accountHistory').classList.remove('show');
+            document.getElementById('invoiceNumber').focus();
+        }
+
+        document.getElementById('companyName').addEventListener('input', function(e) {
+            showHistory('companyName', 'companyHistory', e.target.value, 'companyName');
+        });
+
+        document.getElementById('bankAccount').addEventListener('input', function(e) {
+            showHistory('bankAccount', 'accountHistory', e.target.value, 'bankAccount');
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.form-group')) {
+                document.getElementById('companyHistory').classList.remove('show');
+                document.getElementById('accountHistory').classList.remove('show');
+            }
+        });
+
+        function applyFilters() {
+            const globalSearch = document.getElementById('globalSearch').value.toLowerCase();
+            const statusFilter = document.getElementById('filterStatus').value;
+            const companyFilter = document.getElementById('filterCompany').value.toLowerCase();
+            const accountFilter = document.getElementById('filterAccount').value.toLowerCase();
+            const invoiceNumberFilter = document.getElementById('filterInvoiceNumber').value.toLowerCase();
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
+
+            filteredInvoices = invoices.filter(invoice => {
+                if (globalSearch) {
+                    const searchString = `${invoice.invoiceNumber || ''} ${invoice.companyName || ''} ${invoice.bankAccount || ''} ${invoice.amount || ''} ${invoice.entryDate ? formatDate(invoice.entryDate) : ''} ${invoice.dueDate ? formatDate(invoice.dueDate) : ''} ${invoice.notes || ''}`.toLowerCase();
+                    if (!searchString.includes(globalSearch)) return false;
+                }
+
+                if (statusFilter) {
+                    const status = getPaymentStatus(invoice);
+                    if (statusFilter !== status) return false;
+                }
+
+                if (companyFilter && (!invoice.companyName || !invoice.companyName.toLowerCase().includes(companyFilter))) {
+                    return false;
+                }
+
+                if (accountFilter && (!invoice.bankAccount || !invoice.bankAccount.toLowerCase().includes(accountFilter))) {
+                    return false;
+                }
+
+                if (invoiceNumberFilter && (!invoice.invoiceNumber || !invoice.invoiceNumber.toLowerCase().includes(invoiceNumberFilter))) {
+                    return false;
+                }
+
+                if (dateFrom && invoice.entryDate < dateFrom) return false;
+                if (dateTo && invoice.entryDate > dateTo) return false;
+
+                return true;
+            });
+
+            // Update company summary if company filter is active
+            updateCompanySummary(companyFilter);
+
+            renderInvoices();
+        }
+
+        function clearFilters() {
+            document.getElementById('globalSearch').value = '';
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterCompany').value = '';
+            document.getElementById('filterAccount').value = '';
+            document.getElementById('filterInvoiceNumber').value = '';
+            document.getElementById('filterDateFrom').value = '';
+            document.getElementById('filterDateTo').value = '';
+            
+            document.querySelectorAll('.summary-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            
             applyFilters();
-            return true;
-        } catch (e) {
-            console.error('Error loading from localStorage:', e);
-            invoices = [];
-            return false;
-        }
-    }
-    return false;
-}
-
-// ===== MAIN APPLICATION CODE =====
-let invoices = [];
-let currentFilter = 'all';
-
-function generateId() {
-    return 'inv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-}
-
-function getInvoiceStatus(invoice) {
-    const totalPaid = invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
-    const remaining = invoice.amount - totalPaid;
-    
-    if (remaining === 0) return 'paid';
-    if (totalPaid > 0) return 'partial';
-    return 'unpaid';
-}
-
-function formatCurrency(amount) {
-    return new Intl.NumberFormat('mk-MK', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    }).format(amount) + ' ден';
-}
-
-function formatDate(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('mk-MK');
-}
-
-function updateSummary() {
-    const stats = {
-        total: 0,
-        paid: 0,
-        partial: 0,
-        unpaid: 0,
-        totalAmount: 0,
-        paidAmount: 0,
-        unpaidAmount: 0
-    };
-
-    invoices.forEach(invoice => {
-        stats.total++;
-        stats.totalAmount += invoice.amount;
-        
-        const totalPaid = invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
-        stats.paidAmount += totalPaid;
-        stats.unpaidAmount += (invoice.amount - totalPaid);
-        
-        const status = getInvoiceStatus(invoice);
-        if (status === 'paid') stats.paid++;
-        else if (status === 'partial') stats.partial++;
-        else stats.unpaid++;
-    });
-
-    document.getElementById('totalInvoices').textContent = stats.total;
-    document.getElementById('paidInvoices').textContent = stats.paid;
-    document.getElementById('partialInvoices').textContent = stats.partial;
-    document.getElementById('unpaidInvoices').textContent = stats.unpaid;
-    document.getElementById('totalAmount').textContent = formatCurrency(stats.totalAmount);
-    document.getElementById('paidAmount').textContent = formatCurrency(stats.paidAmount);
-    document.getElementById('unpaidAmount').textContent = formatCurrency(stats.unpaidAmount);
-}
-
-function renderTable() {
-    const tbody = document.getElementById('invoiceTableBody');
-    const globalSearch = document.getElementById('globalSearch').value.toLowerCase();
-    const statusFilter = document.getElementById('filterStatus').value;
-    const companyFilter = document.getElementById('filterCompany').value.toLowerCase();
-    const accountFilter = document.getElementById('filterAccount').value.toLowerCase();
-    const invoiceNumFilter = document.getElementById('filterInvoiceNumber').value.toLowerCase();
-    const dateFrom = document.getElementById('filterDateFrom').value;
-    const dateTo = document.getElementById('filterDateTo').value;
-
-    let filtered = invoices.filter(invoice => {
-        const status = getInvoiceStatus(invoice);
-
-        // Status filter
-        if (statusFilter !== 'all' && status !== statusFilter) return false;
-
-        // Company filter
-        if (companyFilter && !invoice.companyName.toLowerCase().includes(companyFilter)) return false;
-
-        // Account filter
-        if (accountFilter && (!invoice.bankAccount || !invoice.bankAccount.toLowerCase().includes(accountFilter))) return false;
-
-        // Invoice number filter
-        if (invoiceNumFilter && !invoice.invoiceNumber.toLowerCase().includes(invoiceNumFilter)) return false;
-
-        // Date filters
-        if (dateFrom && invoice.entryDate < dateFrom) return false;
-        if (dateTo && invoice.entryDate > dateTo) return false;
-
-        // Global search
-        if (globalSearch) {
-            const searchStr = `${invoice.companyName} ${invoice.invoiceNumber} ${invoice.bankAccount || ''} ${invoice.amount} ${invoice.notes || ''}`.toLowerCase();
-            if (!searchStr.includes(globalSearch)) return false;
         }
 
-        return true;
-    });
+        function updateSummary() {
+            const total = invoices.length;
+            const displayed = filteredInvoices.length;
+            
+            let totalAmount = 0;
+            let paidAmount = 0;
+            let unpaidAmount = 0;
 
-    tbody.innerHTML = '';
-    
-    filtered.forEach((invoice, index) => {
-        const actualIndex = invoices.indexOf(invoice);
-        const totalPaid = invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
-        const remaining = invoice.amount - totalPaid;
-        const status = getInvoiceStatus(invoice);
-        
-        let statusText = '';
-        let statusClass = '';
-        
-        if (status === 'paid') {
-            statusText = '✓ Платена';
-            statusClass = 'status-paid';
-        } else if (status === 'partial') {
-            statusText = '⚡ Делумно';
-            statusClass = 'status-partial';
-        } else {
-            statusText = '⏳ Неплатена';
-            statusClass = 'status-unpaid';
+            filteredInvoices.forEach(inv => {
+                const invTotal = parseFloat(inv.amount || 0);
+                const invPaid = calculatePaidAmount(inv);
+                const invRemaining = invTotal - invPaid;
+
+                totalAmount += invTotal;
+                paidAmount += invPaid;
+                unpaidAmount += invRemaining;
+            });
+
+            document.getElementById('totalInvoices').textContent = total;
+            document.getElementById('displayedInvoices').textContent = displayed;
+            document.getElementById('totalAmount').textContent = formatCurrency(totalAmount) + ' ден';
+            document.getElementById('paidAmount').textContent = formatCurrency(paidAmount) + ' ден';
+            document.getElementById('unpaidAmount').textContent = formatCurrency(unpaidAmount) + ' ден';
         }
 
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${index + 1}</td>
-            <td>${invoice.companyName}</td>
-            <td>${invoice.invoiceNumber}</td>
-            <td>${invoice.bankAccount || '-'}</td>
-            <td>${formatCurrency(invoice.amount)}</td>
-            <td>${formatCurrency(totalPaid)}</td>
-            <td>${formatCurrency(remaining)}</td>
-            <td class="${statusClass}">${statusText}</td>
-            <td>${formatDate(invoice.entryDate)}</td>
-            <td>${formatDate(invoice.dueDate)}</td>
-            <td class="actions">
-                <button class="btn btn-info btn-table" onclick="openPaymentModal(${actualIndex})">💰</button>
-                <button class="btn btn-warning btn-table" onclick="editInvoice(${actualIndex})">✏️</button>
-                <button class="btn btn-danger btn-table" onclick="deleteInvoice(${actualIndex})">🗑️</button>
-            </td>
-        `;
-        tbody.appendChild(row);
-    });
+        function renderInvoices() {
+            const tbody = document.getElementById('invoiceTableBody');
+            tbody.innerHTML = '';
 
-    updateSummary();
-}
+            if (filteredInvoices.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 30px; color: #999;">Нема фактури за прикажување</td></tr>';
+            } else {
+                filteredInvoices.forEach((invoice, displayIndex) => {
+                    const actualIndex = invoices.indexOf(invoice);
+                    const paidAmount = calculatePaidAmount(invoice);
+                    const remainingAmount = calculateRemainingAmount(invoice);
+                    const status = getPaymentStatus(invoice);
+                    
+                    let statusText = '';
+                    let statusClass = '';
+                    
+                    if (status === 'paid') {
+                        statusText = '✓ Платена';
+                        statusClass = 'status-paid';
+                    } else if (status === 'partial') {
+                        statusText = '⏳ Делумно';
+                        statusClass = 'status-partial';
+                    } else {
+                        statusText = '✗ Неплатена';
+                        statusClass = 'status-unpaid';
+                    }
 
-function applyFilters() {
-    renderTable();
-}
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${displayIndex + 1}</td>
+                        <td>${invoice.companyName || ''}</td>
+                        <td><strong>${invoice.invoiceNumber || ''}</strong></td>
+                        <td>${invoice.bankAccount || ''}</td>
+                        <td><strong>${formatCurrency(invoice.amount || 0)}</strong></td>
+                        <td style="color: #27ae60;">${formatCurrency(paidAmount)}</td>
+                        <td style="color: #e74c3c;"><strong>${formatCurrency(remainingAmount)}</strong></td>
+                        <td>${invoice.entryDate ? formatDate(invoice.entryDate) : ''}</td>
+                        <td>${invoice.dueDate ? formatDate(invoice.dueDate) : ''}</td>
+                        <td class="${statusClass}">${statusText}</td>
+                        <td class="actions no-print">
+                            <button class="btn btn-info btn-table" onclick="openPaymentModal(${actualIndex})">💰</button>
+                            <button class="btn btn-warning btn-table" onclick="openEditModal(${actualIndex})">✏️</button>
+                            <button class="btn btn-danger btn-table" onclick="deleteInvoice(${actualIndex})">🗑️</button>
+                        </td>
+                    `;
+                });
+            }
 
-function filterByStatus(status) {
-    currentFilter = status;
-    document.getElementById('filterStatus').value = status;
-    
-    // Update active card
-    document.querySelectorAll('.summary-card').forEach(card => {
-        card.classList.remove('active');
-    });
-    document.getElementById('card-' + status).classList.add('active');
-    
-    applyFilters();
-}
-
-async function deleteInvoice(index) {
-    if (!confirm('Дали сте сигурни дека сакате да ја избришете оваа фактура?')) return;
-    
-    invoices.splice(index, 1);
-    await saveToGoogleSheets();
-    applyFilters();
-}
-
-function editInvoice(index) {
-    const invoice = invoices[index];
-    
-    document.getElementById('editIndex').value = index;
-    document.getElementById('editCompanyName').value = invoice.companyName;
-    document.getElementById('editInvoiceNumber').value = invoice.invoiceNumber;
-    document.getElementById('editBankAccount').value = invoice.bankAccount || '';
-    document.getElementById('editAmount').value = invoice.amount;
-    document.getElementById('editEntryDate').value = invoice.entryDate;
-    document.getElementById('editDueDate').value = invoice.dueDate;
-    document.getElementById('editNotes').value = invoice.notes || '';
-    
-    document.getElementById('editModal').style.display = 'block';
-}
-
-function closeEditModal() {
-    document.getElementById('editModal').style.display = 'none';
-}
-
-function openPaymentModal(index) {
-    const invoice = invoices[index];
-    const totalPaid = invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
-    const remaining = invoice.amount - totalPaid;
-    const progressPercent = (totalPaid / invoice.amount * 100).toFixed(1);
-
-    let paymentsHTML = '';
-    if (invoice.payments && invoice.payments.length > 0) {
-        paymentsHTML = invoice.payments.map((payment, pIdx) => `
-            <div class="payment-item">
-                <div class="payment-item-info">
-                    <div class="payment-item-date">${formatDate(payment.date)}</div>
-                    <div class="payment-item-amount">${formatCurrency(payment.amount)}</div>
-                    ${payment.note ? `<div style="font-size: 0.9em; color: #666;">${payment.note}</div>` : ''}
-                </div>
-                <div style="display: flex; gap: 5px;">
-                    <button class="btn btn-danger btn-small" onclick="deletePayment(${index}, ${pIdx})">🗑️</button>
-                </div>
-            </div>
-        `).join('');
-    } else {
-        paymentsHTML = '<p style="text-align: center; color: #999;">Нема евидентирани плаќања</p>';
-    }
-
-    const content = `
-        <h3>${invoice.companyName} - ${invoice.invoiceNumber}</h3>
-        
-        <div class="payment-info">
-            <div class="payment-info-row">
-                <span>Вкупен износ:</span>
-                <strong>${formatCurrency(invoice.amount)}</strong>
-            </div>
-            <div class="payment-info-row">
-                <span>Платено:</span>
-                <strong style="color: #27ae60;">${formatCurrency(totalPaid)}</strong>
-            </div>
-            <div class="payment-info-row">
-                <span>Преостанато:</span>
-                <strong style="color: #e74c3c;">${formatCurrency(remaining)}</strong>
-            </div>
-        </div>
-
-        <div class="progress-bar">
-            <div class="progress-fill" style="width: ${progressPercent}%">
-                ${progressPercent}%
-            </div>
-        </div>
-
-        ${remaining > 0 ? `
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <h4 style="margin-bottom: 15px;">Додади ново плаќање</h4>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Износ (ден)</label>
-                    <input type="number" id="newPaymentAmount" step="0.01" max="${remaining}" placeholder="Макс: ${remaining}">
-                </div>
-                <div class="form-group">
-                    <label>Датум</label>
-                    <input type="date" id="newPaymentDate" value="${new Date().toISOString().split('T')[0]}">
-                </div>
-                <div class="form-group full-width">
-                    <label>Забелешка</label>
-                    <input type="text" id="newPaymentNote" placeholder="Опционално">
-                </div>
-            </div>
-            <button class="btn btn-success" onclick="addPayment(${index})">✓ Додади плаќање</button>
-        </div>
-        ` : ''}
-
-        <h4 style="margin-top: 20px; margin-bottom: 10px;">Историја на плаќања</h4>
-        <div class="payments-list">
-            ${paymentsHTML}
-        </div>
-    `;
-
-    document.getElementById('paymentModalContent').innerHTML = content;
-    document.getElementById('paymentModal').style.display = 'block';
-}
-
-function closePaymentModal() {
-    document.getElementById('paymentModal').style.display = 'none';
-}
-
-async function addPayment(invoiceIndex) {
-    const amount = parseFloat(document.getElementById('newPaymentAmount').value);
-    const date = document.getElementById('newPaymentDate').value;
-    const note = document.getElementById('newPaymentNote').value;
-
-    if (!amount || amount <= 0) {
-        alert('Внесете валиден износ!');
-        return;
-    }
-
-    const invoice = invoices[invoiceIndex];
-    const totalPaid = invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
-    const remaining = invoice.amount - totalPaid;
-
-    if (amount > remaining) {
-        alert(`Износот не може да биде поголем од преостанатиот долг: ${formatCurrency(remaining)}`);
-        return;
-    }
-
-    if (!invoice.payments) {
-        invoice.payments = [];
-    }
-
-    invoice.payments.push({
-        amount: amount,
-        date: date,
-        note: note
-    });
-
-    await saveToGoogleSheets();
-    openPaymentModal(invoiceIndex);
-    applyFilters();
-}
-
-async function deletePayment(invoiceIndex, paymentIndex) {
-    if (!confirm('Дали сте сигурни дека сакате да го избришете ова плаќање?')) return;
-
-    invoices[invoiceIndex].payments.splice(paymentIndex, 1);
-    
-    await saveToGoogleSheets();
-    openPaymentModal(invoiceIndex);
-    applyFilters();
-}
-
-function exportToExcel() {
-    const data = invoices.map(invoice => {
-        const totalPaid = invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
-        const remaining = invoice.amount - totalPaid;
-        const status = getInvoiceStatus(invoice);
-        
-        return {
-            'Компанија': invoice.companyName,
-            'Број фактура': invoice.invoiceNumber,
-            'Број на сметка': invoice.bankAccount || '',
-            'Износ': invoice.amount,
-            'Платено': totalPaid,
-            'Преостанато': remaining,
-            'Статус': status === 'paid' ? 'Платена' : status === 'partial' ? 'Делумно' : 'Неплатена',
-            'Датум на внес': invoice.entryDate,
-            'Рок за плаќање': invoice.dueDate,
-            'Забелешки': invoice.notes || ''
-        };
-    });
-
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Фактури');
-    
-    const timestamp = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(wb, `hotel-koka-fakturi-${timestamp}.xlsx`);
-}
-
-function showReport() {
-    const stats = {
-        total: 0,
-        paid: 0,
-        partial: 0,
-        unpaid: 0,
-        totalAmount: 0,
-        paidAmount: 0,
-        unpaidAmount: 0
-    };
-
-    invoices.forEach(invoice => {
-        stats.total++;
-        stats.totalAmount += invoice.amount;
-        
-        const totalPaid = invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
-        stats.paidAmount += totalPaid;
-        stats.unpaidAmount += (invoice.amount - totalPaid);
-        
-        const status = getInvoiceStatus(invoice);
-        if (status === 'paid') stats.paid++;
-        else if (status === 'partial') stats.partial++;
-        else stats.unpaid++;
-    });
-
-    const content = `
-        <div style="text-align: center; margin-bottom: 30px;">
-            <h3>Финансиски Извештај</h3>
-            <p style="color: #666;">Генериран на: ${new Date().toLocaleString('mk-MK')}</p>
-        </div>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;">
-            <div style="background: #667eea; color: white; padding: 20px; border-radius: 10px; text-align: center;">
-                <h4>Вкупно Фактури</h4>
-                <p style="font-size: 2em; font-weight: bold;">${stats.total}</p>
-            </div>
-            <div style="background: #27ae60; color: white; padding: 20px; border-radius: 10px; text-align: center;">
-                <h4>Платени</h4>
-                <p style="font-size: 2em; font-weight: bold;">${stats.paid}</p>
-            </div>
-            <div style="background: #f39c12; color: white; padding: 20px; border-radius: 10px; text-align: center;">
-                <h4>Делумно</h4>
-                <p style="font-size: 2em; font-weight: bold;">${stats.partial}</p>
-            </div>
-            <div style="background: #e74c3c; color: white; padding: 20px; border-radius: 10px; text-align: center;">
-                <h4>Неплатени</h4>
-                <p style="font-size: 2em; font-weight: bold;">${stats.unpaid}</p>
-            </div>
-        </div>
-
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px;">
-            <h4 style="margin-bottom: 15px;">Финансиски Преглед</h4>
-            <div style="display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #ddd;">
-                <span>Вкупна сума на фактури:</span>
-                <strong>${formatCurrency(stats.totalAmount)}</strong>
-            </div>
-            <div style="display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #ddd;">
-                <span>Платено:</span>
-                <strong style="color: #27ae60;">${formatCurrency(stats.paidAmount)}</strong>
-            </div>
-            <div style="display: flex; justify-content: space-between; padding: 10px; border-top: 2px solid #667eea; margin-top: 10px;">
-                <span><strong>Преостанато за наплата:</strong></span>
-                <strong style="color: #e74c3c; font-size: 1.2em;">${formatCurrency(stats.unpaidAmount)}</strong>
-            </div>
-        </div>
-
-        <div style="text-align: center; margin-top: 30px;">
-            <button class="btn btn-success" onclick="exportToExcel()">📥 Извези во Excel</button>
-        </div>
-    `;
-
-    document.getElementById('reportContent').innerHTML = content;
-    document.getElementById('reportModal').style.display = 'block';
-}
-
-function closeReportModal() {
-    document.getElementById('reportModal').style.display = 'none';
-}
-
-// Event Listeners
-document.getElementById('invoiceForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-
-    const invoice = {
-        id: generateId(),
-        companyName: document.getElementById('companyName').value,
-        invoiceNumber: document.getElementById('invoiceNumber').value,
-        bankAccount: document.getElementById('bankAccount').value,
-        amount: parseFloat(document.getElementById('amount').value) || 0,
-        entryDate: document.getElementById('entryDate').value,
-        dueDate: document.getElementById('dueDate').value,
-        notes: document.getElementById('notes').value,
-        payments: [],
-        timestamp: new Date().toISOString()
-    };
-
-    const initialStatus = document.querySelector('input[name="initialStatus"]:checked')?.value || 'unpaid';
-
-    if (initialStatus === 'paid') {
-        invoice.payments.push({
-            amount: invoice.amount,
-            date: invoice.entryDate,
-            note: 'Платено (иницијално)'
-        });
-    } else if (initialStatus === 'partial') {
-        const partialVal = parseFloat(document.getElementById('partialPaidAmount').value || 0);
-        if (!(partialVal > 0)) { 
-            alert('Внеси делумно платена сума!'); 
-            return; 
-        }
-        if (partialVal >= invoice.amount) { 
-            alert('Делумната сума мора да е помала од вкупната сума!'); 
-            return; 
+            updateSummary();
         }
 
-        invoice.payments.push({
-            amount: partialVal,
-            date: invoice.entryDate,
-            note: 'Делумно платено (иницијално)'
-        });
-    }
+        function openPaymentModal(index) {
+            const invoice = invoices[index];
+            const paidAmount = calculatePaidAmount(invoice);
+            const remainingAmount = calculateRemainingAmount(invoice);
+            const totalAmount = parseFloat(invoice.amount || 0);
+            const percentage = totalAmount > 0 ? (paidAmount / totalAmount * 100).toFixed(1) : 0;
 
-    invoices.push(invoice);
-    await saveToGoogleSheets();
-    applyFilters();
-    closeAddInvoiceModal();
+            document.getElementById('paymentInvoiceIndex').value = index;
+            document.getElementById('paymentInvoiceNumber').textContent = invoice.invoiceNumber || '';
+            document.getElementById('paymentCompanyName').textContent = invoice.companyName || '';
+            document.getElementById('paymentTotalAmount').textContent = formatCurrency(totalAmount) + ' ден';
+            document.getElementById('paymentPaidAmount').textContent = formatCurrency(paidAmount) + ' ден';
+            document.getElementById('paymentRemainingAmount').textContent = formatCurrency(remainingAmount) + ' ден';
+            
+            const progressBar = document.getElementById('paymentProgress');
+            progressBar.style.width = percentage + '%';
+            progressBar.textContent = percentage + '%';
 
-    this.reset();
-    const partialInput = document.getElementById('partialPaidAmount');
-    if (partialInput) partialInput.value = '';
-    updateInitialPaymentUI();
-    document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
-    document.getElementById('dueDate').value = new Date().toISOString().split('T')[0];
-});
+            document.getElementById('paymentAmount').value = '';
+            document.getElementById('paymentNote').value = '';
+            document.getElementById('paymentDate').value = new Date().toISOString().split('T')[0];
 
-document.getElementById('editForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
+            editingPaymentIndex = null;
+            renderPaymentsList(invoice.payments || []);
 
-    const index = parseInt(document.getElementById('editIndex').value);
-    const invoice = invoices[index];
-    
-    invoice.companyName = document.getElementById('editCompanyName').value;
-    invoice.invoiceNumber = document.getElementById('editInvoiceNumber').value;
-    invoice.bankAccount = document.getElementById('editBankAccount').value;
-    invoice.amount = parseFloat(document.getElementById('editAmount').value) || 0;
-    invoice.entryDate = document.getElementById('editEntryDate').value;
-    invoice.dueDate = document.getElementById('editDueDate').value;
-    invoice.notes = document.getElementById('editNotes').value;
-    invoice.timestamp = new Date().toISOString();
+            document.getElementById('paymentModal').style.display = 'block';
+        }
 
-    await saveToGoogleSheets();
-    closeEditModal();
-    applyFilters();
-});
+        function renderPaymentsList(payments) {
+            const container = document.getElementById('paymentsListContainer');
+            
+            if (!payments || payments.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">Сè уште нема забележани плаќања</p>';
+                return;
+            }
 
-document.getElementById('globalSearch').addEventListener('input', applyFilters);
-document.getElementById('filterStatus').addEventListener('change', applyFilters);
-document.getElementById('filterCompany').addEventListener('input', applyFilters);
-document.getElementById('filterAccount').addEventListener('input', applyFilters);
-document.getElementById('filterInvoiceNumber').addEventListener('input', applyFilters);
-document.getElementById('filterDateFrom').addEventListener('change', applyFilters);
-document.getElementById('filterDateTo').addEventListener('change', applyFilters);
+            let html = '';
+            payments.forEach((payment, idx) => {
+                html += `
+                    <div class="payment-item" id="payment-${idx}">
+                        <div class="payment-item-info" id="payment-info-${idx}">
+                            <div class="payment-item-date">📅 ${formatDate(payment.date)}</div>
+                            <div class="payment-item-amount">${formatCurrency(payment.amount)} ден</div>
+                            ${payment.note ? `<div style="color: #666; font-size: 0.9em; margin-top: 5px;">${payment.note}</div>` : ''}
+                        </div>
+                        <div class="payment-edit-form" id="payment-edit-${idx}">
+                            <div class="form-group">
+                                <label>Сума (ден)</label>
+                                <input type="number" id="edit-amount-${idx}" value="${payment.amount}" step="0.01" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Датум</label>
+                                <input type="date" id="edit-date-${idx}" value="${payment.date}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Забелешка</label>
+                                <input type="text" id="edit-note-${idx}" value="${payment.note || ''}" placeholder="Опционално">
+                            </div>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="btn btn-success btn-small" onclick="savePaymentEdit(${idx})">✓ Зачувај</button>
+                                <button class="btn btn-danger btn-small" onclick="cancelPaymentEdit(${idx})">✗ Откажи</button>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 5px; flex-direction: column;">
+                            <button class="btn btn-warning btn-small" id="edit-btn-${idx}" onclick="startEditPayment(${idx})">✏️</button>
+                            <button class="btn btn-danger btn-small" onclick="deletePayment(${idx})">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            });
 
-window.onclick = function(event) {
-    const editModal = document.getElementById('editModal');
-    const reportModal = document.getElementById('reportModal');
-    const paymentModal = document.getElementById('paymentModal');
-    const addModal = document.getElementById('addInvoiceModal');
-    
-    if (event.target == editModal) closeEditModal();
-    if (event.target == reportModal) closeReportModal();
-    if (event.target == paymentModal) closePaymentModal();
-    if (event.target == addModal) closeAddInvoiceModal();
-}
+            container.innerHTML = html;
+        }
 
-// Initialize dates
-document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
-document.getElementById('dueDate').value = new Date().toISOString().split('T')[0];
+        function startEditPayment(paymentIndex) {
+            if (editingPaymentIndex !== null && editingPaymentIndex !== paymentIndex) {
+                cancelPaymentEdit(editingPaymentIndex);
+            }
 
-// Add Invoice Modal Functions
-function openAddInvoiceModal() {
-    const modal = document.getElementById('addInvoiceModal');
-    modal.style.display = 'block';
+            editingPaymentIndex = paymentIndex;
+            
+            const paymentItem = document.getElementById(`payment-${paymentIndex}`);
+            const infoDiv = document.getElementById(`payment-info-${paymentIndex}`);
+            const editForm = document.getElementById(`payment-edit-${paymentIndex}`);
+            const editBtn = document.getElementById(`edit-btn-${paymentIndex}`);
 
-    const today = new Date().toISOString().split('T')[0];
-    const entry = document.getElementById('entryDate');
-    const due = document.getElementById('dueDate');
-    if (entry && !entry.value) entry.value = today;
-    if (due && !due.value) due.value = today;
+            paymentItem.classList.add('editing');
+            infoDiv.style.display = 'none';
+            editForm.classList.add('active');
+            editBtn.style.display = 'none';
+        }
 
-    updateInitialPaymentUI();
+        function cancelPaymentEdit(paymentIndex) {
+            const paymentItem = document.getElementById(`payment-${paymentIndex}`);
+            const infoDiv = document.getElementById(`payment-info-${paymentIndex}`);
+            const editForm = document.getElementById(`payment-edit-${paymentIndex}`);
+            const editBtn = document.getElementById(`edit-btn-${paymentIndex}`);
 
-    setTimeout(() => {
-        const el = document.getElementById('companyName');
-        if (el) el.focus();
-    }, 50);
-}
+            if (paymentItem && infoDiv && editForm && editBtn) {
+                paymentItem.classList.remove('editing');
+                infoDiv.style.display = 'block';
+                editForm.classList.remove('active');
+                editBtn.style.display = 'block';
+            }
 
-function closeAddInvoiceModal() {
-    document.getElementById('addInvoiceModal').style.display = 'none';
-}
+            editingPaymentIndex = null;
+        }
 
-function updateInitialPaymentUI() {
-    const statusEl = document.querySelector('input[name="initialStatus"]:checked');
-    const status = statusEl ? statusEl.value : 'unpaid';
-    const group = document.getElementById('partialPaidGroup');
-    if (group) group.style.display = (status === 'partial') ? 'block' : 'none';
-}
+        function savePaymentEdit(paymentIndex) {
+            const invoiceIndex = parseInt(document.getElementById('paymentInvoiceIndex').value);
+            const invoice = invoices[invoiceIndex];
+            
+            const newAmount = parseFloat(document.getElementById(`edit-amount-${paymentIndex}`).value);
+            const newDate = document.getElementById(`edit-date-${paymentIndex}`).value;
+            const newNote = document.getElementById(`edit-note-${paymentIndex}`).value;
 
-// Radio listeners
-document.querySelectorAll('input[name="initialStatus"]').forEach(r => {
-    r.addEventListener('change', updateInitialPaymentUI);
-});
-updateInitialPaymentUI();
+            if (newAmount <= 0) {
+                alert('Сумата мора да биде поголема од 0!');
+                return;
+            }
 
-// ESC to close modal
-document.addEventListener('keydown', function(event) {
-    if (event.key !== 'Escape') return;
-    const addModal = document.getElementById('addInvoiceModal');
-    if (addModal && addModal.style.display === 'block') closeAddInvoiceModal();
-});
+            const currentPaymentAmount = invoice.payments[paymentIndex].amount;
+            const totalPaid = calculatePaidAmount(invoice) - currentPaymentAmount;
+            const totalAmount = parseFloat(invoice.amount || 0);
+            const available = totalAmount - totalPaid;
 
-// Company history autocomplete
-let companyHistory = [];
+            if (newAmount > available) {
+                alert(`Сумата (${formatCurrency(newAmount)} ден) е поголема од достапниот остаток (${formatCurrency(available)} ден)!`);
+                return;
+            }
 
-function updateCompanyHistory() {
-    const companies = {};
-    invoices.forEach(inv => {
-        const key = inv.companyName.toLowerCase();
-        if (!companies[key]) {
-            companies[key] = {
-                name: inv.companyName,
-                count: 0,
-                lastAccount: inv.bankAccount,
-                lastAmount: inv.amount
+            invoice.payments[paymentIndex] = {
+                amount: newAmount,
+                date: newDate,
+                note: newNote
             };
+
+            saveInvoices();
+            openPaymentModal(invoiceIndex);
+            applyFilters();
         }
-        companies[key].count++;
-        companies[key].lastAccount = inv.bankAccount || companies[key].lastAccount;
-    });
-    
-    companyHistory = Object.values(companies).sort((a, b) => b.count - a.count);
-}
 
-document.getElementById('companyName').addEventListener('input', function() {
-    const value = this.value.toLowerCase();
-    const dropdown = document.getElementById('companyHistory');
-    
-    if (value.length < 2) {
-        dropdown.classList.remove('show');
-        return;
-    }
+        function deletePayment(paymentIndex) {
+            if (!confirm('Дали сте сигурни дека сакате да го избришете ова плаќање?')) {
+                return;
+            }
 
-    updateCompanyHistory();
-    const matches = companyHistory.filter(c => c.name.toLowerCase().includes(value));
-    
-    if (matches.length === 0) {
-        dropdown.classList.remove('show');
-        return;
-    }
+            const invoiceIndex = parseInt(document.getElementById('paymentInvoiceIndex').value);
+            invoices[invoiceIndex].payments.splice(paymentIndex, 1);
+            saveInvoices();
+            
+            openPaymentModal(invoiceIndex);
+            applyFilters();
+        }
 
-    dropdown.innerHTML = matches.slice(0, 5).map(company => `
-        <div class="history-item" onclick="fillCompanyData('${company.name}', '${company.lastAccount || ''}')">
-            <div class="history-item-company">${company.name}</div>
-            <div class="history-item-details">
-                ${company.lastAccount ? `<span class="history-item-account">${company.lastAccount}</span>` : ''}
-                <span class="history-badge">${company.count} фактури</span>
-            </div>
-        </div>
-    `).join('');
-    
-    dropdown.classList.add('show');
-});
+        document.getElementById('addPaymentForm').addEventListener('submit', function(e) {
+            e.preventDefault();
 
-function fillCompanyData(name, account) {
-    document.getElementById('companyName').value = name;
-    if (account) document.getElementById('bankAccount').value = account;
-    document.getElementById('companyHistory').classList.remove('show');
-}
+            const invoiceIndex = parseInt(document.getElementById('paymentInvoiceIndex').value);
+            const invoice = invoices[invoiceIndex];
+            const paymentAmount = parseFloat(document.getElementById('paymentAmount').value);
+            const remainingAmount = calculateRemainingAmount(invoice);
 
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('#companyName') && !e.target.closest('#companyHistory')) {
-        document.getElementById('companyHistory').classList.remove('show');
-    }
-});
+            if (paymentAmount > remainingAmount) {
+                alert(`Сумата на плаќањето (${formatCurrency(paymentAmount)} ден) е поголема од остатокот (${formatCurrency(remainingAmount)} ден)!`);
+                return;
+            }
 
-// Initialize on page load
-window.addEventListener('load', async function() {
-    console.log('🚀 Hotel Koka Dashboard loading...');
-    
-    // Try to load from Google Sheets first
-    const sheetsLoaded = await loadFromGoogleSheets();
-    
-    // If Sheets failed, load from localStorage
-    if (!sheetsLoaded) {
-        console.log('⚠️ Loading from localStorage as fallback');
-        loadFromLocalStorage();
-    }
-    
-    applyFilters();
-    console.log('✅ Dashboard ready!');
-});
+            if (paymentAmount <= 0) {
+                alert('Сумата на плаќањето мора да биде поголема од 0!');
+                return;
+            }
 
-</script>
+            const payment = {
+                amount: paymentAmount,
+                date: document.getElementById('paymentDate').value,
+                note: document.getElementById('paymentNote').value
+            };
+
+            if (!invoice.payments) {
+                invoice.payments = [];
+            }
+
+            invoice.payments.push(payment);
+            saveInvoices();
+            
+            openPaymentModal(invoiceIndex);
+            applyFilters();
+        });
+
+        function closePaymentModal() {
+            document.getElementById('paymentModal').style.display = 'none';
+            editingPaymentIndex = null;
+        }
+
+        function showAllInvoices() {
+            clearFilters();
+        }
+
+        function showDetailReport(type) {
+            document.querySelectorAll('.summary-card').forEach(card => {
+                card.classList.remove('active');
+            });
+
+            let title = '';
+            let dataToShow = [];
+            
+            if (type === 'paid') {
+                title = '✓ Платени фактури';
+                dataToShow = filteredInvoices.filter(inv => getPaymentStatus(inv) === 'paid');
+                document.getElementById('cardPaid').classList.add('active');
+            } else if (type === 'unpaid') {
+                title = '✗ Неплатени фактури';
+                dataToShow = filteredInvoices.filter(inv => getPaymentStatus(inv) === 'unpaid');
+                document.getElementById('cardUnpaid').classList.add('active');
+            } else if (type === 'total') {
+                title = '💰 Вкупна вредност - Сите фактури';
+                dataToShow = filteredInvoices;
+                document.getElementById('cardTotalAmount').classList.add('active');
+            } else if (type === 'displayed') {
+                title = '📋 Прикажани фактури';
+                dataToShow = filteredInvoices;
+                document.getElementById('cardDisplayed').classList.add('active');
+            }
+
+            currentReportData = dataToShow;
+            
+            let totalAmount = 0;
+            let paidAmount = 0;
+            let unpaidAmount = 0;
+
+            dataToShow.forEach(inv => {
+                const invTotal = parseFloat(inv.amount || 0);
+                const invPaid = calculatePaidAmount(inv);
+                totalAmount += invTotal;
+                paidAmount += invPaid;
+                unpaidAmount += (invTotal - invPaid);
+            });
+
+            let html = `
+                <div class="detail-table">
+                    <div class="detail-row">
+                        <span class="detail-label">Број на фактури:</span>
+                        <span class="detail-value">${dataToShow.length}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Вкупна сума:</span>
+                        <span class="detail-value">${formatCurrency(totalAmount)} ден</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Платено:</span>
+                        <span class="detail-value" style="color: #27ae60;">${formatCurrency(paidAmount)} ден</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Остаток:</span>
+                        <span class="detail-value" style="color: #e74c3c;">${formatCurrency(unpaidAmount)} ден</span>
+                    </div>
+                </div>
+                <h3 style="margin-top: 25px; margin-bottom: 15px;">Листа на фактури:</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #667eea; color: white;">
+                            <th style="padding: 10px; text-align: left;">#</th>
+                            <th style="padding: 10px; text-align: left;">Фирма</th>
+                            <th style="padding: 10px; text-align: left;">Број</th>
+                            <th style="padding: 10px; text-align: left;">Вкупно</th>
+                            <th style="padding: 10px; text-align: left;">Платено</th>
+                            <th style="padding: 10px; text-align: left;">Остаток</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            dataToShow.forEach((inv, idx) => {
+                const invPaid = calculatePaidAmount(inv);
+                const invRemaining = parseFloat(inv.amount || 0) - invPaid;
+                html += `
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 10px;">${idx + 1}</td>
+                        <td style="padding: 10px;">${inv.companyName || ''}</td>
+                        <td style="padding: 10px;"><strong>${inv.invoiceNumber || ''}</strong></td>
+                        <td style="padding: 10px;">${formatCurrency(inv.amount || 0)} ден</td>
+                        <td style="padding: 10px; color: #27ae60;">${formatCurrency(invPaid)} ден</td>
+                        <td style="padding: 10px; color: #e74c3c;"><strong>${formatCurrency(invRemaining)} ден</strong></td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+
+            document.getElementById('reportTitle').textContent = title;
+            document.getElementById('reportContent').innerHTML = html;
+            document.getElementById('reportModal').style.display = 'block';
+        }
+
+        function generateMonthlyReport() {
+            const monthlyData = {};
+            
+            filteredInvoices.forEach(inv => {
+                if (inv.entryDate) {
+                    const date = new Date(inv.entryDate);
+                    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                    
+                    if (!monthlyData[monthKey]) {
+                        monthlyData[monthKey] = {
+                            month: monthKey,
+                            invoices: [],
+                            total: 0,
+                            paid: 0,
+                            unpaid: 0
+                        };
+                    }
+                    
+                    const invTotal = parseFloat(inv.amount || 0);
+                    const invPaid = calculatePaidAmount(inv);
+                    
+                    monthlyData[monthKey].invoices.push(inv);
+                    monthlyData[monthKey].total += invTotal;
+                    monthlyData[monthKey].paid += invPaid;
+                    monthlyData[monthKey].unpaid += (invTotal - invPaid);
+                }
+            });
+
+            const sortedMonths = Object.keys(monthlyData).sort().reverse();
+            
+            let html = '<h3 style="margin-bottom: 20px;">📅 Месечен извештај</h3>';
+            
+            sortedMonths.forEach(monthKey => {
+                const data = monthlyData[monthKey];
+                const [year, month] = monthKey.split('-');
+                const monthNames = ['Јануари', 'Февруари', 'Март', 'Април', 'Мај', 'Јуни', 
+                                   'Јули', 'Август', 'Септември', 'Октомври', 'Ноември', 'Декември'];
+                const monthName = monthNames[parseInt(month) - 1];
+                
+                html += `
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                        <h4 style="color: #667eea; margin-bottom: 15px;">${monthName} ${year}</h4>
+                        <div class="detail-table">
+                            <div class="detail-row">
+                                <span class="detail-label">Број на фактури:</span>
+                                <span class="detail-value">${data.invoices.length}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Вкупна вредност:</span>
+                                <span class="detail-value">${formatCurrency(data.total)} ден</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Платени:</span>
+                                <span class="detail-value" style="color: #27ae60;">${formatCurrency(data.paid)} ден</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Неплатени:</span>
+                                <span class="detail-value" style="color: #e74c3c;">${formatCurrency(data.unpaid)} ден</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            currentReportData = filteredInvoices;
+            document.getElementById('reportTitle').textContent = '📅 Месечен извештај';
+            document.getElementById('reportContent').innerHTML = html;
+            document.getElementById('reportModal').style.display = 'block';
+        }
+
+        function exportToCSV() {
+            let csv = 'Фирма,Број на фактура,Жиро сметка,Вкупна сума,Платено,Остаток,Датум фактура,Валута,Статус,Забелешка\n';
+            
+            filteredInvoices.forEach(inv => {
+                const paidAmount = calculatePaidAmount(inv);
+                const remainingAmount = calculateRemainingAmount(inv);
+                const status = getPaymentStatus(inv);
+                let statusText = status === 'paid' ? 'Платена' : (status === 'partial' ? 'Делумно платена' : 'Неплатена');
+                
+                csv += `"${inv.companyName || ''}","${inv.invoiceNumber || ''}","${inv.bankAccount || ''}","${inv.amount || 0}","${paidAmount}","${remainingAmount}","${inv.entryDate ? formatDate(inv.entryDate) : ''}","${inv.dueDate ? formatDate(inv.dueDate) : ''}","${statusText}","${inv.notes || ''}"\n`;
+            });
+
+            downloadCSV(csv, 'fakturi_hotel_de_koka.csv');
+        }
+
+        function exportReportToCSV() {
+            if (!currentReportData) return;
+            
+            let csv = 'Фирма,Број на фактура,Жиро сметка,Вкупна сума,Платено,Остаток,Датум фактура,Валута,Статус,Забелешка\n';
+            
+            currentReportData.forEach(inv => {
+                const paidAmount = calculatePaidAmount(inv);
+                const remainingAmount = calculateRemainingAmount(inv);
+                const status = getPaymentStatus(inv);
+                let statusText = status === 'paid' ? 'Платена' : (status === 'partial' ? 'Делумно платена' : 'Неплатена');
+                
+                csv += `"${inv.companyName || ''}","${inv.invoiceNumber || ''}","${inv.bankAccount || ''}","${inv.amount || 0}","${paidAmount}","${remainingAmount}","${inv.entryDate ? formatDate(inv.entryDate) : ''}","${inv.dueDate ? formatDate(inv.dueDate) : ''}","${statusText}","${inv.notes || ''}"\n`;
+            });
+
+            downloadCSV(csv, 'izvestaj_hotel_de_koka.csv');
+        }
+
+        function downloadCSV(csv, filename) {
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        function printModal() {
+            const printContent = document.getElementById('reportContent').innerHTML;
+            const printWindow = window.open('', '', 'height=600,width=800');
+            printWindow.document.write('<html><head><title>Извештај - Хотел Де КОКА</title>');
+            printWindow.document.write('<style>body{font-family: Arial, sans-serif; padding: 20px;} table{width:100%; border-collapse: collapse;} th,td{border:1px solid #ddd; padding:8px; text-align:left;} th{background:#667eea; color:white;} .detail-row{display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #eee;} .detail-label{font-weight:600;} .detail-value{color:#667eea; font-weight:600;}</style>');
+            printWindow.document.write('</head><body>');
+            printWindow.document.write('<h1>🏨 Хотел Де КОКА</h1>');
+            printWindow.document.write('<h2>' + document.getElementById('reportTitle').textContent + '</h2>');
+            printWindow.document.write(printContent);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            printWindow.print();
+        }
+
+        function closeReportModal() {
+            document.getElementById('reportModal').style.display = 'none';
+            currentReportData = null;
+        }
+
+        function openEditModal(index) {
+            const invoice = invoices[index];
+            document.getElementById('editIndex').value = index;
+            document.getElementById('editCompanyName').value = invoice.companyName || '';
+            document.getElementById('editInvoiceNumber').value = invoice.invoiceNumber || '';
+            document.getElementById('editBankAccount').value = invoice.bankAccount || '';
+            document.getElementById('editAmount').value = invoice.amount || '';
+            document.getElementById('editEntryDate').value = invoice.entryDate || '';
+            document.getElementById('editDueDate').value = invoice.dueDate || '';
+            document.getElementById('editNotes').value = invoice.notes || '';
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        function deleteInvoice(index) {
+            if (confirm('Дали сте сигурни дека сакате да ја избришете оваа фактура?')) {
+                invoices.splice(index, 1);
+                saveInvoices();
+                applyFilters();
+            }
+        }
+
+        document.getElementById('invoiceForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const invoice = {
+                companyName: document.getElementById('companyName').value,
+                invoiceNumber: document.getElementById('invoiceNumber').value,
+                bankAccount: document.getElementById('bankAccount').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                entryDate: document.getElementById('entryDate').value,
+                dueDate: document.getElementById('dueDate').value,
+                notes: document.getElementById('notes').value,
+                payments: []
+            };
+
+            invoices.push(invoice);
+            saveInvoices();
+            applyFilters();
+
+            this.reset();
+            document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('dueDate').value = new Date().toISOString().split('T')[0];
+        });
+
+        document.getElementById('editForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const index = parseInt(document.getElementById('editIndex').value);
+            const invoice = invoices[index];
+            
+            invoice.companyName = document.getElementById('editCompanyName').value;
+            invoice.invoiceNumber = document.getElementById('editInvoiceNumber').value;
+            invoice.bankAccount = document.getElementById('editBankAccount').value;
+            invoice.amount = parseFloat(document.getElementById('editAmount').value);
+            invoice.entryDate = document.getElementById('editEntryDate').value;
+            invoice.dueDate = document.getElementById('editDueDate').value;
+            invoice.notes = document.getElementById('editNotes').value;
+
+            saveInvoices();
+            closeEditModal();
+            applyFilters();
+        });
+
+        document.getElementById('globalSearch').addEventListener('input', applyFilters);
+        document.getElementById('filterStatus').addEventListener('change', applyFilters);
+        document.getElementById('filterCompany').addEventListener('input', applyFilters);
+        document.getElementById('filterAccount').addEventListener('input', applyFilters);
+        document.getElementById('filterInvoiceNumber').addEventListener('input', applyFilters);
+        document.getElementById('filterDateFrom').addEventListener('change', applyFilters);
+        document.getElementById('filterDateTo').addEventListener('change', applyFilters);
+
+        window.onclick = function(event) {
+            const editModal = document.getElementById('editModal');
+            const reportModal = document.getElementById('reportModal');
+            const paymentModal = document.getElementById('paymentModal');
+            if (event.target == editModal) {
+                closeEditModal();
+            }
+            if (event.target == reportModal) {
+                closeReportModal();
+            }
+            if (event.target == paymentModal) {
+                closePaymentModal();
+            }
+        }
+
+        document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
+        document.getElementById('dueDate').value = new Date().toISOString().split('T')[0];
+
+        applyFilters();
+    </script>
 </body>
 </html>
