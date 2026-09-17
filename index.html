@@ -8,6 +8,9 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <style>
         * {
             margin: 0;
@@ -514,11 +517,57 @@
             font-size: 0.9em;
         }
 
-        .sync-buttons {
+        .auth-bar {
             display: flex;
-            gap: 10px;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 12px;
             margin-bottom: 20px;
+            font-size: 13px;
+            color: #666;
             flex-wrap: wrap;
+        }
+
+        #login-overlay {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 20000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .login-box h2 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .login-box p {
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        .login-box .btn {
+            font-size: 16px;
+            padding: 12px 24px;
+        }
+
+        #login-error {
+            color: #e74c3c;
+            margin-top: 15px;
+            font-size: 14px;
+            display: none;
         }
 
         @media (max-width: 768px) {
@@ -556,6 +605,16 @@
     </style>
 </head>
 <body>
+    <!-- Login Overlay -->
+    <div id="login-overlay">
+        <div class="login-box">
+            <h2>🏨 Хотел Де КОКА</h2>
+            <p>Најавете се за пристап до фактурите</p>
+            <button class="btn btn-primary" onclick="signIn()">Најава со Google</button>
+            <div id="login-error"></div>
+        </div>
+    </div>
+
     <!-- Sync Indicator -->
     <div id="sync-indicator"></div>
 
@@ -563,10 +622,10 @@
         <h1>🏨 Хотел Де КОКА</h1>
         <p class="subtitle">Систем за управување со фактури и плаќања</p>
 
-        <!-- Sync Buttons -->
-        <div class="sync-buttons">
-            <button class="btn btn-success btn-small" onclick="loadFromGoogleSheets()">⬇️ Вчитај од Google Sheets</button>
-            <button class="btn btn-info btn-small" onclick="manualSyncToSheets()">☁️ Sync со Google Sheets</button>
+        <!-- Auth Bar -->
+        <div class="auth-bar">
+            <span id="user-email"></span>
+            <button class="btn btn-danger btn-small" onclick="signOut()">Одјава</button>
         </div>
 
         <!-- Summary Cards -->
@@ -811,15 +870,32 @@
     </div>
 
 <script>
-// ===== GOOGLE SHEETS CONFIGURATION =====
-const GOOGLE_SHEETS_CONFIG = {
-    webAppUrl: 'https://script.google.com/macros/s/AKfycbxADkb4ZD9IrVD7hAB2ZE32MFQhKaXF5UZwC_slbDZT6WwNH3lDW9B_qiVzRrX3lXQD0g/exec',
-    enabled: true // Set to false to use localStorage only
+// ===== FIREBASE CONFIGURATION =====
+const firebaseConfig = {
+    apiKey: "AIzaSyDSSfedbCVPoGCJ2byj2WYjLsKzYCitxNM",
+    authDomain: "hotel-de-koka-fakturu.firebaseapp.com",
+    projectId: "hotel-de-koka-fakturu",
+    storageBucket: "hotel-de-koka-fakturu.firebasestorage.app",
+    messagingSenderId: "795774054020",
+    appId: "1:795774054020:web:94685091a9e79312131cd1"
 };
 
-// ===== LOCAL STORAGE (BACKUP) =====
-const STORAGE_KEY = 'hotelkoka_invoices';
-const STORAGE_VERSION = '1.0';
+// Дозволени емаили (Google најава). Празна листа = секој најавен Google корисник има пристап.
+const ALLOWED_EMAILS = [
+    'iduzzz@gmail.com',
+];
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const invoicesRef = db.collection('invoices');
+let unsubscribeInvoices = null;
+
+// Еднократно чистење на старите локални податоци (Google Sheets верзија)
+try {
+    localStorage.removeItem('hotelkoka_invoices');
+    localStorage.removeItem('hotelkoka_invoices_version');
+} catch (e) {}
 
 // ===== SYNC INDICATOR FUNCTION =====
 function showSyncIndicator(status) {
@@ -829,191 +905,139 @@ function showSyncIndicator(status) {
         indicator.id = 'sync-indicator';
         document.body.appendChild(indicator);
     }
-    
+
     indicator.style.display = 'block';
-    
+
     if (status === 'syncing') {
         indicator.style.background = '#3498db';
         indicator.style.color = 'white';
-        indicator.textContent = '☁️ Синхронизација...';
+        indicator.textContent = '☁️ Зачувување...';
     } else if (status === 'success') {
         indicator.style.background = '#27ae60';
         indicator.style.color = 'white';
-        indicator.textContent = '✓ Синхронизирано!';
-        setTimeout(() => {
-            indicator.style.display = 'none';
-        }, 3000);
+        indicator.textContent = '✓ Зачувано';
+        setTimeout(() => { indicator.style.display = 'none'; }, 2000);
     } else if (status === 'error') {
         indicator.style.background = '#e74c3c';
         indicator.style.color = 'white';
         indicator.textContent = '✗ Грешка!';
-        setTimeout(() => {
-            indicator.style.display = 'none';
-        }, 3000);
+        setTimeout(() => { indicator.style.display = 'none'; }, 3000);
     }
 }
 
-// ===== GOOGLE SHEETS FUNCTIONS =====
-async function loadFromGoogleSheets() {
-    if (!GOOGLE_SHEETS_CONFIG.enabled) {
-        console.log('Google Sheets integration disabled');
-        return false;
-    }
-
-    try {
-        showSyncIndicator('syncing');
-        
-        const response = await fetch(GOOGLE_SHEETS_CONFIG.webAppUrl);
-        
-        if (!response.ok) {
-            throw new Error(`Apps Script error: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        if (!result.success) {
-            throw new Error('Failed to load data from Apps Script');
-        }
-        
-        if (!result.data || result.data.length === 0) {
-            console.log('No data in Google Sheets');
-            invoices = [];
-            showSyncIndicator('success');
-            saveToLocalStorage();
-            applyFilters();
-            return true;
-        }
-        
-        // Convert sheet rows to invoices
-        invoices = result.data.map(row => ({
-            id: String(row[0] || generateId()),
-            companyName: row[1] || '',
-            invoiceNumber: row[2] || '',
-            bankAccount: row[3] || '',
-            amount: parseFloat(row[4]) || 0,
-            entryDate: row[5] || '',
-            dueDate: row[6] || '',
-            notes: row[7] || '',
-            payments: row[8] ? JSON.parse(row[8]) : [],
-            timestamp: row[9] || new Date().toISOString()
-        }));
-        
-        console.log('✅ Loaded from Google Sheets:', invoices.length, 'invoices');
-        showSyncIndicator('success');
-        
-        // Save to localStorage as backup
-        saveToLocalStorage();
-        applyFilters();
-        
-        return true;
-    } catch (error) {
-        console.error('❌ Error loading from Google Sheets:', error);
-        showSyncIndicator('error');
-        alert('Грешка при вчитување од Google Sheets. Ќе се користат локални податоци.');
-        
-        // Fallback to localStorage
-        loadFromLocalStorage();
-        return false;
-    }
+// ===== AUTH =====
+function signIn() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(err => {
+        console.error('Sign-in error:', err);
+        const el = document.getElementById('login-error');
+        el.textContent = 'Грешка при најава: ' + (err.message || err.code);
+        el.style.display = 'block';
+    });
 }
 
-async function saveToGoogleSheets() {
-    if (!GOOGLE_SHEETS_CONFIG.enabled) {
-        console.log('Google Sheets integration disabled');
-        return false;
-    }
-
-    try {
-        showSyncIndicator('syncing');
-        
-        // Prepare data to send
-        const dataToSend = {
-            invoices: invoices.map(inv => ({
-                id: inv.id || generateId(),
-                companyName: inv.companyName || '',
-                invoiceNumber: inv.invoiceNumber || '',
-                bankAccount: inv.bankAccount || '',
-                amount: inv.amount || 0,
-                entryDate: inv.entryDate || '',
-                dueDate: inv.dueDate || '',
-                notes: inv.notes || '',
-                payments: inv.payments || [],
-                timestamp: inv.timestamp || new Date().toISOString()
-            }))
-        };
-        
-        // Send with timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        
-        const response = await fetch(GOOGLE_SHEETS_CONFIG.webAppUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'text/plain',
-            },
-            body: JSON.stringify(dataToSend),
-            signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (response.ok) {
-            console.log('✅ Synced to Google Sheets:', invoices.length, 'invoices');
-            showSyncIndicator('success');
-            
-            // Save to localStorage as backup
-            saveToLocalStorage();
-            return true;
-        } else {
-            throw new Error('Server returned: ' + response.status);
-        }
-        
-    } catch (error) {
-        console.error('❌ Error syncing to Google Sheets:', error);
-        showSyncIndicator('error');
-        
-        // Fallback to localStorage
-        saveToLocalStorage();
-        return false;
-    }
+function signOut() {
+    auth.signOut();
 }
 
-// Manual sync button
-async function manualSyncToSheets() {
-    const result = await saveToGoogleSheets();
-    if (result) {
-        alert('✅ Успешно синхронизирано со Google Sheets!');
+function isAllowed(user) {
+    if (!user || !user.email) return false;
+    if (ALLOWED_EMAILS.length === 0) return true;
+    return ALLOWED_EMAILS.map(e => e.toLowerCase()).includes(user.email.toLowerCase());
+}
+
+auth.onAuthStateChanged(user => {
+    const overlay = document.getElementById('login-overlay');
+    const errEl = document.getElementById('login-error');
+
+    if (user && isAllowed(user)) {
+        overlay.style.display = 'none';
+        document.getElementById('user-email').textContent = user.email;
+        startInvoicesListener();
     } else {
-        alert('⚠️ Грешка при синхронизација. Податоците се зачувани локално.');
+        if (user && !isAllowed(user)) {
+            errEl.textContent = 'Немате пристап со ' + user.email;
+            errEl.style.display = 'block';
+            auth.signOut();
+        }
+        overlay.style.display = 'flex';
+        stopInvoicesListener();
+        invoices = [];
+        applyFilters();
+    }
+});
+
+// ===== FIRESTORE =====
+function startInvoicesListener() {
+    if (unsubscribeInvoices) return;
+    unsubscribeInvoices = invoicesRef.onSnapshot(snapshot => {
+        invoices = snapshot.docs.map(d => {
+            const data = d.data();
+            return {
+                id: d.id,
+                companyName: data.companyName || '',
+                invoiceNumber: data.invoiceNumber || '',
+                bankAccount: data.bankAccount || '',
+                amount: parseFloat(data.amount) || 0,
+                entryDate: data.entryDate || '',
+                dueDate: data.dueDate || '',
+                notes: data.notes || '',
+                payments: Array.isArray(data.payments) ? data.payments : [],
+                timestamp: data.timestamp || ''
+            };
+        });
+        // Најнови прво (по датум на внес), потоа по време на креирање
+        invoices.sort((a, b) => {
+            if (a.entryDate !== b.entryDate) return (b.entryDate || '').localeCompare(a.entryDate || '');
+            return (b.timestamp || '').localeCompare(a.timestamp || '');
+        });
+        applyFilters();
+        console.log('✅ Firestore:', invoices.length, 'фактури');
+    }, err => {
+        console.error('❌ Firestore listener error:', err);
+        showSyncIndicator('error');
+        alert('Грешка при вчитување од Firebase: ' + err.message);
+    });
+}
+
+function stopInvoicesListener() {
+    if (unsubscribeInvoices) {
+        unsubscribeInvoices();
+        unsubscribeInvoices = null;
     }
 }
 
-// ===== LOCAL STORAGE FUNCTIONS =====
-function saveToLocalStorage() {
+function findInvoice(id) {
+    return invoices.find(inv => inv.id === id);
+}
+
+async function saveInvoiceToFirestore(invoice) {
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(invoices));
-        localStorage.setItem(STORAGE_KEY + '_version', STORAGE_VERSION);
+        showSyncIndicator('syncing');
+        const { id, ...data } = invoice;
+        await invoicesRef.doc(id).set(data);
+        showSyncIndicator('success');
         return true;
     } catch (error) {
-        console.error('Error saving to localStorage:', error);
+        console.error('❌ Firestore save error:', error);
+        showSyncIndicator('error');
+        alert('Грешка при зачувување: ' + error.message);
         return false;
     }
 }
 
-function loadFromLocalStorage() {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-        try {
-            invoices = JSON.parse(saved);
-            applyFilters();
-            return true;
-        } catch (e) {
-            console.error('Error loading from localStorage:', e);
-            invoices = [];
-            return false;
-        }
+async function deleteInvoiceFromFirestore(id) {
+    try {
+        showSyncIndicator('syncing');
+        await invoicesRef.doc(id).delete();
+        showSyncIndicator('success');
+        return true;
+    } catch (error) {
+        console.error('❌ Firestore delete error:', error);
+        showSyncIndicator('error');
+        alert('Грешка при бришење: ' + error.message);
+        return false;
     }
-    return false;
 }
 
 // ===== MAIN APPLICATION CODE =====
@@ -1121,7 +1145,6 @@ function renderTable() {
     tbody.innerHTML = '';
     
     filtered.forEach((invoice, index) => {
-        const actualIndex = invoices.indexOf(invoice);
         const totalPaid = invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
         const remaining = invoice.amount - totalPaid;
         const status = getInvoiceStatus(invoice);
@@ -1153,9 +1176,9 @@ function renderTable() {
             <td>${formatDate(invoice.entryDate)}</td>
             <td>${formatDate(invoice.dueDate)}</td>
             <td class="actions">
-                <button class="btn btn-info btn-table" onclick="openPaymentModal(${actualIndex})">💰</button>
-                <button class="btn btn-warning btn-table" onclick="editInvoice(${actualIndex})">✏️</button>
-                <button class="btn btn-danger btn-table" onclick="deleteInvoice(${actualIndex})">🗑️</button>
+                <button class="btn btn-info btn-table" onclick="openPaymentModal('${invoice.id}')">💰</button>
+                <button class="btn btn-warning btn-table" onclick="editInvoice('${invoice.id}')">✏️</button>
+                <button class="btn btn-danger btn-table" onclick="deleteInvoice('${invoice.id}')">🗑️</button>
             </td>
         `;
         tbody.appendChild(row);
@@ -1181,18 +1204,17 @@ function filterByStatus(status) {
     applyFilters();
 }
 
-async function deleteInvoice(index) {
+async function deleteInvoice(id) {
     if (!confirm('Дали сте сигурни дека сакате да ја избришете оваа фактура?')) return;
-    
-    invoices.splice(index, 1);
-    await saveToGoogleSheets();
-    applyFilters();
+
+    await deleteInvoiceFromFirestore(id);
 }
 
-function editInvoice(index) {
-    const invoice = invoices[index];
-    
-    document.getElementById('editIndex').value = index;
+function editInvoice(id) {
+    const invoice = findInvoice(id);
+    if (!invoice) return;
+
+    document.getElementById('editIndex').value = id;
     document.getElementById('editCompanyName').value = invoice.companyName;
     document.getElementById('editInvoiceNumber').value = invoice.invoiceNumber;
     document.getElementById('editBankAccount').value = invoice.bankAccount || '';
@@ -1208,8 +1230,9 @@ function closeEditModal() {
     document.getElementById('editModal').style.display = 'none';
 }
 
-function openPaymentModal(index) {
-    const invoice = invoices[index];
+function openPaymentModal(id) {
+    const invoice = findInvoice(id);
+    if (!invoice) return;
     const totalPaid = invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
     const remaining = invoice.amount - totalPaid;
     const progressPercent = (totalPaid / invoice.amount * 100).toFixed(1);
@@ -1224,7 +1247,7 @@ function openPaymentModal(index) {
                     ${payment.note ? `<div style="font-size: 0.9em; color: #666;">${payment.note}</div>` : ''}
                 </div>
                 <div style="display: flex; gap: 5px;">
-                    <button class="btn btn-danger btn-small" onclick="deletePayment(${index}, ${pIdx})">🗑️</button>
+                    <button class="btn btn-danger btn-small" onclick="deletePayment('${id}', ${pIdx})">🗑️</button>
                 </div>
             </div>
         `).join('');
@@ -1273,7 +1296,7 @@ function openPaymentModal(index) {
                     <input type="text" id="newPaymentNote" placeholder="Опционално">
                 </div>
             </div>
-            <button class="btn btn-success" onclick="addPayment(${index})">✓ Додади плаќање</button>
+            <button class="btn btn-success" onclick="addPayment('${id}')">✓ Додади плаќање</button>
         </div>
         ` : ''}
 
@@ -1291,7 +1314,7 @@ function closePaymentModal() {
     document.getElementById('paymentModal').style.display = 'none';
 }
 
-async function addPayment(invoiceIndex) {
+async function addPayment(id) {
     const amount = parseFloat(document.getElementById('newPaymentAmount').value);
     const date = document.getElementById('newPaymentDate').value;
     const note = document.getElementById('newPaymentNote').value;
@@ -1301,7 +1324,8 @@ async function addPayment(invoiceIndex) {
         return;
     }
 
-    const invoice = invoices[invoiceIndex];
+    const invoice = findInvoice(id);
+    if (!invoice) return;
     const totalPaid = invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
     const remaining = invoice.amount - totalPaid;
 
@@ -1320,19 +1344,19 @@ async function addPayment(invoiceIndex) {
         note: note
     });
 
-    await saveToGoogleSheets();
-    openPaymentModal(invoiceIndex);
-    applyFilters();
+    await saveInvoiceToFirestore(invoice);
+    openPaymentModal(id);
 }
 
-async function deletePayment(invoiceIndex, paymentIndex) {
+async function deletePayment(id, paymentIndex) {
     if (!confirm('Дали сте сигурни дека сакате да го избришете ова плаќање?')) return;
 
-    invoices[invoiceIndex].payments.splice(paymentIndex, 1);
-    
-    await saveToGoogleSheets();
-    openPaymentModal(invoiceIndex);
-    applyFilters();
+    const invoice = findInvoice(id);
+    if (!invoice) return;
+    invoice.payments.splice(paymentIndex, 1);
+
+    await saveInvoiceToFirestore(invoice);
+    openPaymentModal(id);
 }
 
 function exportToExcel() {
@@ -1485,9 +1509,8 @@ document.getElementById('invoiceForm').addEventListener('submit', async function
         });
     }
 
-    invoices.push(invoice);
-    await saveToGoogleSheets();
-    applyFilters();
+    const ok = await saveInvoiceToFirestore(invoice);
+    if (!ok) return;
     closeAddInvoiceModal();
 
     this.reset();
@@ -1501,8 +1524,9 @@ document.getElementById('invoiceForm').addEventListener('submit', async function
 document.getElementById('editForm').addEventListener('submit', async function(e) {
     e.preventDefault();
 
-    const index = parseInt(document.getElementById('editIndex').value);
-    const invoice = invoices[index];
+    const id = document.getElementById('editIndex').value;
+    const invoice = findInvoice(id);
+    if (!invoice) return;
     
     invoice.companyName = document.getElementById('editCompanyName').value;
     invoice.invoiceNumber = document.getElementById('editInvoiceNumber').value;
@@ -1513,9 +1537,9 @@ document.getElementById('editForm').addEventListener('submit', async function(e)
     invoice.notes = document.getElementById('editNotes').value;
     invoice.timestamp = new Date().toISOString();
 
-    await saveToGoogleSheets();
+    const ok = await saveInvoiceToFirestore(invoice);
+    if (!ok) return;
     closeEditModal();
-    applyFilters();
 });
 
 document.getElementById('globalSearch').addEventListener('input', applyFilters);
@@ -1650,20 +1674,9 @@ document.addEventListener('click', function(e) {
 });
 
 // Initialize on page load
-window.addEventListener('load', async function() {
-    console.log('🚀 Hotel Koka Dashboard loading...');
-    
-    // Try to load from Google Sheets first
-    const sheetsLoaded = await loadFromGoogleSheets();
-    
-    // If Sheets failed, load from localStorage
-    if (!sheetsLoaded) {
-        console.log('⚠️ Loading from localStorage as fallback');
-        loadFromLocalStorage();
-    }
-    
+window.addEventListener('load', function() {
+    console.log('🚀 Hotel Koka Dashboard loading (Firebase)...');
     applyFilters();
-    console.log('✅ Dashboard ready!');
 });
 
 </script>
