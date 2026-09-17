@@ -300,8 +300,12 @@
         }
 
         .summary-card p {
-            font-size: 2em;
+            font-size: clamp(1.1em, 1.6vw, 1.7em);
             font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.2;
         }
 
         .actions {
