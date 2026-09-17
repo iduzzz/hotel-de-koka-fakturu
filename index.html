@@ -747,6 +747,7 @@
                 </thead>
                 <tbody id="invoiceTableBody">
                 </tbody>
+                <tfoot id="invoiceTableFoot"></tfoot>
             </table>
         </div>
     </div>
@@ -1240,6 +1241,25 @@ function renderTable() {
         `;
         tbody.appendChild(row);
     });
+
+    // Збир за прикажаните (филтрирани) фактури
+    const tfoot = document.getElementById('invoiceTableFoot');
+    if (filtered.length > 0) {
+        const sumAmount = filtered.reduce((sum, inv) => sum + inv.amount, 0);
+        const sumPaid = filtered.reduce((sum, inv) => sum + (inv.payments ? inv.payments.reduce((a, p) => a + p.amount, 0) : 0), 0);
+        const sumRemaining = sumAmount - sumPaid;
+        tfoot.innerHTML = `
+            <tr style="background: #f0f4ff; font-weight: 700; border-top: 3px solid #667eea;">
+                <td></td>
+                <td colspan="3">Збир за прикажани (${filtered.length} ${filtered.length === 1 ? 'фактура' : 'фактури'})</td>
+                <td>${formatCurrency(sumAmount)}</td>
+                <td style="color: #27ae60;">${formatCurrency(sumPaid)}</td>
+                <td style="color: #e74c3c;">${formatCurrency(sumRemaining)}</td>
+                <td colspan="4"></td>
+            </tr>`;
+    } else {
+        tfoot.innerHTML = '';
+    }
 
     updateSummary();
 }
