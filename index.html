@@ -1075,6 +1075,26 @@ function generateId() {
     return 'inv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 }
 
+function parseAmountInput(raw) {
+    // Прифаќа: 10915 | 10915.50 | 10915,50 | 10.915,50 | 10,915.50
+    let v = String(raw || '').trim().replace(/\s/g, '');
+    if (!v) return NaN;
+    const lastComma = v.lastIndexOf(','), lastDot = v.lastIndexOf('.');
+    if (lastComma > -1 && lastDot > -1) {
+        // двата присутни: последниот е децимален сепаратор
+        v = lastComma > lastDot ? v.replace(/\./g, '').replace(',', '.') : v.replace(/,/g, '');
+    } else if (lastComma > -1) {
+        // само запирка: ако по неа има точно 2 цифри → децимала, инаку илјади
+        v = (v.length - lastComma - 1 === 2) ? v.replace(',', '.') : v.replace(/,/g, '');
+    } else if (lastDot > -1) {
+        // само точка: ако по неа има точно 3 цифри и нема други точки → илјади (10.915)
+        const parts = v.split('.');
+        if (parts.length === 2 && parts[1].length === 3) v = parts.join('');
+    }
+    const n = parseFloat(v);
+    return isNaN(n) ? NaN : Math.round(n * 100) / 100;
+}
+
 function getInvoiceStatus(invoice) {
     const totalPaid = invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
     const remaining = invoice.amount - totalPaid;
@@ -1268,8 +1288,8 @@ function closeEditModal() {
 function openPaymentModal(id) {
     const invoice = findInvoice(id);
     if (!invoice) return;
-    const totalPaid = invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
-    const remaining = invoice.amount - totalPaid;
+    const totalPaid = Math.round((invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0) * 100) / 100;
+    const remaining = Math.round((invoice.amount - totalPaid) * 100) / 100;
     const progressPercent = invoice.amount > 0 ? Math.min(100, totalPaid / invoice.amount * 100).toFixed(1) : '0.0';
 
     let paymentsHTML = '';
@@ -1320,7 +1340,7 @@ function openPaymentModal(id) {
             <div class="form-grid">
                 <div class="form-group">
                     <label>Износ (ден)</label>
-                    <input type="number" id="newPaymentAmount" step="0.01" max="${remaining}" placeholder="Макс: ${remaining}">
+                    <input type="text" inputmode="decimal" id="newPaymentAmount" placeholder="Макс: ${remaining.toFixed(2)}">
                 </div>
                 <div class="form-group">
                     <label>Датум</label>
@@ -1332,6 +1352,7 @@ function openPaymentModal(id) {
                 </div>
             </div>
             <button class="btn btn-success" onclick="addPayment('${id}')">✓ Додади плаќање</button>
+            <button class="btn btn-primary" onclick="document.getElementById('newPaymentAmount').value = '${remaining.toFixed(2)}'; addPayment('${id}')">💯 Плати го целиот остаток (${formatCurrency(remaining)})</button>
         </div>
         ` : ''}
 
@@ -1350,7 +1371,7 @@ function closePaymentModal() {
 }
 
 async function addPayment(id) {
-    const amount = parseFloat(document.getElementById('newPaymentAmount').value);
+    const amount = parseAmountInput(document.getElementById('newPaymentAmount').value);
     const date = document.getElementById('newPaymentDate').value;
     const note = document.getElementById('newPaymentNote').value;
 
@@ -1361,8 +1382,8 @@ async function addPayment(id) {
 
     const invoice = findInvoice(id);
     if (!invoice) return;
-    const totalPaid = invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
-    const remaining = invoice.amount - totalPaid;
+    const totalPaid = Math.round((invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0) * 100) / 100;
+    const remaining = Math.round((invoice.amount - totalPaid) * 100) / 100;
 
     if (amount > remaining + 0.005) {
         alert(`Износот не може да биде поголем од преостанатиот долг: ${formatCurrency(remaining)}`);
