@@ -672,6 +672,7 @@
             <button class="btn btn-success" onclick="exportToExcel()">📥 Извези во Excel</button>
             <button class="btn btn-info" onclick="showReport()">📊 Генерирај Извештај</button>
             <button class="btn btn-warning" onclick="document.getElementById('jsonImportInput').click()">📤 Импорт JSON</button>
+            <button class="btn btn-info" onclick="exportBackupJSON()">📥 Експорт JSON (backup)</button>
             <input type="file" id="jsonImportInput" accept=".json" style="display: none;" onchange="importFromJSON(event)">
         </div>
 
@@ -1622,6 +1623,36 @@ function clearFilters() {
     currentFilter = 'all';
     document.querySelectorAll('.summary-card').forEach(card => card.classList.remove('active'));
     applyFilters();
+}
+
+// ===== JSON BACKUP EXPORT =====
+function exportBackupJSON() {
+    if (invoices.length === 0) {
+        alert('Нема податоци за backup.');
+        return;
+    }
+    const data = invoices.map(inv => ({
+        id: inv.id,
+        companyName: inv.companyName,
+        invoiceNumber: inv.invoiceNumber,
+        bankAccount: inv.bankAccount || '',
+        amount: inv.amount,
+        entryDate: inv.entryDate || '',
+        dueDate: inv.dueDate || '',
+        notes: inv.notes || '',
+        payments: inv.payments || [],
+        timestamp: inv.timestamp || ''
+    }));
+    const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 16).replace('T', '_').replace(':', '-');
+    a.href = url;
+    a.download = `hotel-koka-backup-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 
 // ===== JSON IMPORT (Firestore batch) =====
