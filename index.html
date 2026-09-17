@@ -928,7 +928,9 @@ function showSyncIndicator(status) {
 // ===== AUTH =====
 function signIn() {
     const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider).catch(err => {
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const signInPromise = isMobile ? auth.signInWithRedirect(provider) : auth.signInWithPopup(provider);
+    signInPromise.catch(err => {
         console.error('Sign-in error:', err);
         const el = document.getElementById('login-error');
         el.textContent = 'Грешка при најава: ' + (err.message || err.code);
@@ -945,6 +947,13 @@ function isAllowed(user) {
     if (ALLOWED_EMAILS.length === 0) return true;
     return ALLOWED_EMAILS.map(e => e.toLowerCase()).includes(user.email.toLowerCase());
 }
+
+auth.getRedirectResult().catch(err => {
+    console.error('Redirect sign-in error:', err);
+    const el = document.getElementById('login-error');
+    el.textContent = 'Грешка при најава: ' + (err.message || err.code);
+    el.style.display = 'block';
+});
 
 auth.onAuthStateChanged(user => {
     const overlay = document.getElementById('login-overlay');
@@ -1052,7 +1061,7 @@ function getInvoiceStatus(invoice) {
     const totalPaid = invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
     const remaining = invoice.amount - totalPaid;
     
-    if (remaining === 0) return 'paid';
+    if (Math.abs(remaining) < 0.005) return 'paid';
     if (totalPaid > 0) return 'partial';
     return 'unpaid';
 }
@@ -1235,7 +1244,7 @@ function openPaymentModal(id) {
     if (!invoice) return;
     const totalPaid = invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
     const remaining = invoice.amount - totalPaid;
-    const progressPercent = (totalPaid / invoice.amount * 100).toFixed(1);
+    const progressPercent = invoice.amount > 0 ? Math.min(100, totalPaid / invoice.amount * 100).toFixed(1) : '0.0';
 
     let paymentsHTML = '';
     if (invoice.payments && invoice.payments.length > 0) {
@@ -1279,7 +1288,7 @@ function openPaymentModal(id) {
             </div>
         </div>
 
-        ${remaining > 0 ? `
+        ${remaining >= 0.005 ? `
         <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
             <h4 style="margin-bottom: 15px;">Додади ново плаќање</h4>
             <div class="form-grid">
@@ -1329,7 +1338,7 @@ async function addPayment(id) {
     const totalPaid = invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
     const remaining = invoice.amount - totalPaid;
 
-    if (amount > remaining) {
+    if (amount > remaining + 0.005) {
         alert(`Износот не може да биде поголем од преостанатиот долг: ${formatCurrency(remaining)}`);
         return;
     }
@@ -1528,10 +1537,17 @@ document.getElementById('editForm').addEventListener('submit', async function(e)
     const invoice = findInvoice(id);
     if (!invoice) return;
     
+    const newAmount = parseFloat(document.getElementById('editAmount').value) || 0;
+    const alreadyPaid = invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
+    if (newAmount + 0.005 < alreadyPaid) {
+        alert(`Износот не може да биде помал од веќе платеното: ${formatCurrency(alreadyPaid)}. Прво избришете плаќања.`);
+        return;
+    }
+
     invoice.companyName = document.getElementById('editCompanyName').value;
     invoice.invoiceNumber = document.getElementById('editInvoiceNumber').value;
     invoice.bankAccount = document.getElementById('editBankAccount').value;
-    invoice.amount = parseFloat(document.getElementById('editAmount').value) || 0;
+    invoice.amount = newAmount;
     invoice.entryDate = document.getElementById('editEntryDate').value;
     invoice.dueDate = document.getElementById('editDueDate').value;
     invoice.notes = document.getElementById('editNotes').value;
@@ -1648,8 +1664,8 @@ document.getElementById('companyName').addEventListener('input', function() {
         return;
     }
 
-    dropdown.innerHTML = matches.slice(0, 5).map(company => `
-        <div class="history-item" onclick="fillCompanyData('${company.name}', '${company.lastAccount || ''}')">
+    dropdown.innerHTML = matches.slice(0, 5).map((company, i) => `
+        <div class="history-item" data-idx="${i}">
             <div class="history-item-company">${company.name}</div>
             <div class="history-item-details">
                 ${company.lastAccount ? `<span class="history-item-account">${company.lastAccount}</span>` : ''}
@@ -1658,6 +1674,13 @@ document.getElementById('companyName').addEventListener('input', function() {
         </div>
     `).join('');
     
+    dropdown.querySelectorAll('.history-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const c = matches[parseInt(item.dataset.idx)];
+            fillCompanyData(c.name, c.lastAccount || '');
+        });
+    });
+
     dropdown.classList.add('show');
 });
 
