@@ -665,12 +665,23 @@
             <button class="btn btn-primary" onclick="openAddInvoiceModal()">➕ Додади Фактура</button>
             <button class="btn btn-success" onclick="exportToExcel()">📥 Извези во Excel</button>
             <button class="btn btn-info" onclick="showReport()">📊 Генерирај Извештај</button>
+            <button class="btn btn-warning" onclick="document.getElementById('jsonImportInput').click()">📤 Импорт JSON</button>
+            <input type="file" id="jsonImportInput" accept=".json" style="display: none;" onchange="importFromJSON(event)">
         </div>
 
         <!-- Filters -->
         <div class="filter-section">
             <h3 style="margin-bottom: 15px; color: #333;">🔍 Филтри за пребарување</h3>
             <div class="filter-grid">
+                <div class="form-group">
+                    <label>Година</label>
+                    <select id="filterYear">
+                        <option value="all">Сите години</option>
+                        <option value="2026" selected>2026</option>
+                        <option value="2025">2025</option>
+                        <option value="2024">2024</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label>Статус</label>
                     <select id="filterStatus">
@@ -1075,8 +1086,16 @@ function formatCurrency(amount) {
 
 function formatDate(dateString) {
     if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('mk-MK');
+    const parts = String(dateString).split('T')[0].split('-');
+    if (parts.length !== 3) return dateString;
+    return `${parts[2]}.${parts[1]}.${parts[0]}`;
+}
+
+function getYearFilteredInvoices() {
+    const yearEl = document.getElementById('filterYear');
+    const year = yearEl ? yearEl.value : 'all';
+    if (year === 'all') return invoices;
+    return invoices.filter(inv => (inv.entryDate || '').startsWith(year));
 }
 
 function updateSummary() {
@@ -1090,7 +1109,7 @@ function updateSummary() {
         unpaidAmount: 0
     };
 
-    invoices.forEach(invoice => {
+    getYearFilteredInvoices().forEach(invoice => {
         stats.total++;
         stats.totalAmount += invoice.amount;
         
@@ -1123,7 +1142,7 @@ function renderTable() {
     const dateFrom = document.getElementById('filterDateFrom').value;
     const dateTo = document.getElementById('filterDateTo').value;
 
-    let filtered = invoices.filter(invoice => {
+    let filtered = getYearFilteredInvoices().filter(invoice => {
         const status = getInvoiceStatus(invoice);
 
         // Status filter
@@ -1369,7 +1388,7 @@ async function deletePayment(id, paymentIndex) {
 }
 
 function exportToExcel() {
-    const data = invoices.map(invoice => {
+    const data = getYearFilteredInvoices().map(invoice => {
         const totalPaid = invoice.payments ? invoice.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
         const remaining = invoice.amount - totalPaid;
         const status = getInvoiceStatus(invoice);
@@ -1407,7 +1426,7 @@ function showReport() {
         unpaidAmount: 0
     };
 
-    invoices.forEach(invoice => {
+    getYearFilteredInvoices().forEach(invoice => {
         stats.total++;
         stats.totalAmount += invoice.amount;
         
@@ -1423,7 +1442,7 @@ function showReport() {
 
     const content = `
         <div style="text-align: center; margin-bottom: 30px;">
-            <h3>Финансиски Извештај</h3>
+            <h3>Финансиски Извештај — ${document.getElementById('filterYear').value === 'all' ? 'сите години' : document.getElementById('filterYear').value}</h3>
             <p style="color: #666;">Генериран на: ${new Date().toLocaleString('mk-MK')}</p>
         </div>
 
@@ -1565,6 +1584,67 @@ document.getElementById('filterAccount').addEventListener('input', applyFilters)
 document.getElementById('filterInvoiceNumber').addEventListener('input', applyFilters);
 document.getElementById('filterDateFrom').addEventListener('change', applyFilters);
 document.getElementById('filterDateTo').addEventListener('change', applyFilters);
+document.getElementById('filterYear').addEventListener('change', applyFilters);
+
+// ===== JSON IMPORT (Firestore batch) =====
+async function importFromJSON(event) {
+    const file = event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+
+    let data;
+    try {
+        data = JSON.parse(await file.text());
+    } catch (e) {
+        alert('Фајлот не е валиден JSON.');
+        return;
+    }
+    if (!Array.isArray(data) || data.length === 0) {
+        alert('JSON фајлот не содржи листа на фактури.');
+        return;
+    }
+
+    const valid = data.filter(inv => inv && inv.id && inv.companyName && inv.invoiceNumber && typeof inv.amount === 'number');
+    if (valid.length === 0) {
+        alert('Нема валидни фактури во фајлот.');
+        return;
+    }
+
+    const existing = valid.filter(inv => findInvoice(inv.id)).length;
+    const msg = `Пронајдени ${valid.length} фактури во фајлот.` +
+        (existing > 0 ? `\n${existing} веќе постојат и ќе бидат ажурирани (нема дупликати).` : '') +
+        `\n\nДа продолжам со увозот?`;
+    if (!confirm(msg)) return;
+
+    try {
+        showSyncIndicator('syncing');
+        const CHUNK = 400;
+        for (let i = 0; i < valid.length; i += CHUNK) {
+            const batch = db.batch();
+            valid.slice(i, i + CHUNK).forEach(inv => {
+                const { id, ...rest } = inv;
+                batch.set(invoicesRef.doc(String(id)), {
+                    companyName: rest.companyName || '',
+                    invoiceNumber: rest.invoiceNumber || '',
+                    bankAccount: rest.bankAccount || '',
+                    amount: parseFloat(rest.amount) || 0,
+                    entryDate: rest.entryDate || '',
+                    dueDate: rest.dueDate || '',
+                    notes: rest.notes || '',
+                    payments: Array.isArray(rest.payments) ? rest.payments : [],
+                    timestamp: rest.timestamp || new Date().toISOString()
+                });
+            });
+            await batch.commit();
+        }
+        showSyncIndicator('success');
+        alert(`✓ Увезени ${valid.length} фактури.`);
+    } catch (error) {
+        console.error('Import error:', error);
+        showSyncIndicator('error');
+        alert('Грешка при увоз: ' + error.message);
+    }
+}
 
 window.onclick = function(event) {
     const editModal = document.getElementById('editModal');
