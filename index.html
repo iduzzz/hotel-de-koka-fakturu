@@ -721,7 +721,10 @@
             </div>
             <div class="search-box">
                 <label>Глобално пребарување</label>
-                <input type="text" id="globalSearch" placeholder="Пребарувај низ сите полиња...">
+                <div style="display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap;">
+                    <input type="text" id="globalSearch" placeholder="Пребарувај низ сите полиња..." style="flex: 1; min-width: 200px;">
+                    <button type="button" class="btn btn-danger" onclick="clearFilters()">🧹 Избриши филтри</button>
+                </div>
             </div>
         </div>
 
@@ -1613,6 +1616,15 @@ document.getElementById('filterInvoiceNumber').addEventListener('input', applyFi
 document.getElementById('filterDateFrom').addEventListener('change', applyFilters);
 document.getElementById('filterDateTo').addEventListener('change', applyFilters);
 document.getElementById('filterYear').addEventListener('change', applyFilters);
+
+function clearFilters() {
+    ['globalSearch', 'filterCompany', 'filterAccount', 'filterInvoiceNumber', 'filterDateFrom', 'filterDateTo']
+        .forEach(idEl => { document.getElementById(idEl).value = ''; });
+    document.getElementById('filterStatus').value = 'all';
+    currentFilter = 'all';
+    document.querySelectorAll('.summary-card').forEach(card => card.classList.remove('active'));
+    applyFilters();
+}
 
 // ===== JSON IMPORT (Firestore batch) =====
 async function importFromJSON(event) {
