@@ -740,7 +740,7 @@
                         <th>Платено</th>
                         <th>Преостанато</th>
                         <th>Статус</th>
-                        <th>Датум на внес</th>
+                        <th>Датум на фактура</th>
                         <th>Рок</th>
                         <th>Акции</th>
                     </tr>
@@ -779,7 +779,7 @@
                         <input type="number" id="amount" step="0.01" required>
                     </div>
                     <div class="form-group">
-                        <label>Датум на внес *</label>
+                        <label>Датум на фактура *</label>
                         <input type="date" id="entryDate" required>
                     </div>
                     <div class="form-group">
@@ -848,7 +848,7 @@
                         <input type="number" id="editAmount" step="0.01" required>
                     </div>
                     <div class="form-group">
-                        <label>Датум на внес *</label>
+                        <label>Датум на фактура *</label>
                         <input type="date" id="editEntryDate" required>
                     </div>
                     <div class="form-group">
@@ -1451,7 +1451,7 @@ function exportToExcel() {
             'Платено': totalPaid,
             'Преостанато': remaining,
             'Статус': status === 'paid' ? 'Платена' : status === 'partial' ? 'Делумно' : 'Неплатена',
-            'Датум на внес': invoice.entryDate,
+            'Датум на фактура': invoice.entryDate,
             'Рок за плаќање': invoice.dueDate,
             'Забелешки': invoice.notes || ''
         };
