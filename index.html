@@ -1334,7 +1334,8 @@ function openPaymentModal(id) {
 
     const content = `
         <h3>${invoice.companyName} - ${invoice.invoiceNumber}</h3>
-        
+        <p style="color: #667eea; font-size: 1.05em; margin-bottom: 15px;">💳 Жиро сметка: <strong style="font-family: monospace;">${invoice.bankAccount || '— нема внесено —'}</strong></p>
+
         <div class="payment-info">
             <div class="payment-info-row">
                 <span>Вкупен износ:</span>
